@@ -9,3 +9,4 @@
 5. Show correct function with unit-tests, mock out the “production” database
 6. Initial docker-compose.yml, used to run the REST-server & database inside containers
 7. Implement your additional use-case in your project (this must contain additional entities)
+8. 
