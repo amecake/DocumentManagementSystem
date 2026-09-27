@@ -7,6 +7,10 @@ import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.mapper.DocumentMapper;
+import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
+import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,10 +29,12 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final DocumentMapper mapper;
+    private final TagRepository tagRepository;
 
-    public DocumentService(DocumentRepository documentRepository, DocumentMapper mapper) {
+    public DocumentService(DocumentRepository documentRepository, DocumentMapper mapper, TagRepository tagRepository) {
         this.documentRepository = documentRepository;
         this.mapper = mapper;
+        this.tagRepository = tagRepository;
     }
 
     public DocumentDto upload(String title, MultipartFile file) {
@@ -80,6 +86,22 @@ public class DocumentService {
         DocumentEntity entity = getDocument(id);
         documentRepository.delete(entity);
         log.info("Document {} deleted", id);
+    }
+
+    public Set<String> addTag(Long documentId, String tagName) {
+        DocumentEntity document = getDocument(documentId);
+        TagEntity tag = tagRepository.findByName(tagName)
+                .orElseGet(() -> tagRepository.save(new TagEntity(tagName)));
+        document.getTags().add(tag);
+        documentRepository.save(document);
+        log.info("Tag '{}' added to document {}", tagName, documentId);
+        return document.getTags().stream().map(TagEntity::getName).collect(Collectors.toSet());
+    }
+
+    @Transactional(readOnly = true)
+    public Set<String> getTags(Long documentId) {
+        DocumentEntity document = getDocument(documentId);
+        return document.getTags().stream().map(TagEntity::getName).collect(Collectors.toSet());
     }
 
     private DocumentEntity getDocument(Long id) {

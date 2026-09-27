@@ -3,7 +3,9 @@ package at.fhtw.swen3.paperless.service;
 import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
+import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
+import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.mapper.DocumentMapper;
@@ -17,6 +19,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,11 +32,14 @@ class DocumentServiceTest {
     @Mock
     private DocumentRepository documentRepository;
 
+    @Mock
+    private TagRepository tagRepository;
+
     private DocumentService service;
 
     @BeforeEach
     void setUp() {
-        service = new DocumentService(documentRepository, Mappers.getMapper(DocumentMapper.class));
+        service = new DocumentService(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository);
     }
 
     private static DocumentEntity document(long id, String title) {
@@ -130,5 +136,41 @@ class DocumentServiceTest {
         service.delete(1L);
 
         verify(documentRepository).delete(doc);
+    }
+
+    @Test
+    void addTag_newTagName_createsAndAttachesTag() {
+        DocumentEntity doc = document(1, "invoice");
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        when(tagRepository.findByName("finance")).thenReturn(Optional.empty());
+        when(tagRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Set<String> tags = service.addTag(1L, "finance");
+
+        assertThat(tags).containsExactly("finance");
+    }
+
+    @Test
+    void addTag_existingTagName_reusesTag() {
+        DocumentEntity doc = document(1, "invoice");
+        TagEntity existing = new TagEntity("finance");
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        when(tagRepository.findByName("finance")).thenReturn(Optional.of(existing));
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.addTag(1L, "finance");
+
+        verify(tagRepository, never()).save(any());
+    }
+
+    @Test
+    void getTags_returnsTagNames() {
+        DocumentEntity doc = document(1, "invoice");
+        doc.getTags().add(new TagEntity("finance"));
+        doc.getTags().add(new TagEntity("urgent"));
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+
+        assertThat(service.getTags(1L)).containsExactlyInAnyOrder("finance", "urgent");
     }
 }

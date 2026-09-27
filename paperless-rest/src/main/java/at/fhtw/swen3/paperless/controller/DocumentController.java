@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.Map;
+import java.util.Set;
 
 import java.util.List;
 
@@ -46,6 +48,16 @@ public class DocumentController {
     @PutMapping("/{id}")
     public DocumentDto update(@PathVariable Long id, @Valid @RequestBody DocumentUpdateDto update) {
         return documentService.update(id, update);
+    }
+
+    @PostMapping("/{id}/tags")
+    public Set<String> addTag(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return documentService.addTag(id, body.get("name"));
+    }
+
+    @GetMapping("/{id}/tags")
+    public Set<String> getTags(@PathVariable Long id) {
+        return documentService.getTags(id);
     }
 
     @DeleteMapping("/{id}")
