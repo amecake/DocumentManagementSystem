@@ -7,8 +7,8 @@
 - [x] 3. REST Server created - Endopints defined by the team (code-first)
 - [x] 4. ORM is integrated to persist the entities on the PostgreSQL database, use the repository pattern
 - [x] 5. Show correct function with unit-tests, mock out the “production” database
-- [ ] 6. Initial docker-compose.yml, used to run the REST-server & database inside containers
-- [ ] 7. Implement your additional use-case in your project (this must contain additional entities)
+- [x] 6. Initial docker-compose.yml, used to run the REST-server & database inside containers
+- [x] 7. Implement your additional use-case in your project (this must contain additional entities)
 
 ## REST server (`paperless-rest`)
 
@@ -22,6 +22,8 @@ Java 25, Spring Boot 3.5, PostgreSQL.
 | GET | `/api/documents/search?q=` | Search by title |
 | PUT | `/api/documents/{id}` | Update the title |
 | DELETE | `/api/documents/{id}` | Delete a document |
+| POST   | /api/documents/{id}/tags | Add a tag to a document (body: `{"name": "..."}`) |
+| GET    | /api/documents/{id}/tags | List tags on a document |
 
 Swagger UI: http://localhost:8080/swagger-ui.html
 
