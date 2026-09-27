@@ -22,8 +22,8 @@ Java 25, Spring Boot 3.5, PostgreSQL.
 | GET | `/api/documents/search?q=` | Search by title |
 | PUT | `/api/documents/{id}` | Update the title |
 | DELETE | `/api/documents/{id}` | Delete a document |
-| POST   | /api/documents/{id}/tags | Add a tag to a document (body: `{"name": "..."}`) |
-| GET    | /api/documents/{id}/tags | List tags on a document |
+| POST   | `/api/documents/{id}/tags` | Add a tag to a document (body: `{"name": "..."}`) |
+| GET    | `/api/documents/{id}/tags` | List tags on a document |
 
 Swagger UI: http://localhost:8080/swagger-ui.html
 
