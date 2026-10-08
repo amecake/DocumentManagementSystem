@@ -104,6 +104,18 @@ class DocumentControllerTest {
     }
 
     @Test
+    void unknownUrl_returns404() throws Exception {
+        mvc.perform(get("/api/gibtsned")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void upload_withoutFile_returns400() throws Exception {
+        mvc.perform(multipart("/api/documents").param("title", "NoFile"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
     void unexpectedError_returns500() throws Exception {
         when(documentService.findAll()).thenThrow(new IllegalStateException("boom"));
 
