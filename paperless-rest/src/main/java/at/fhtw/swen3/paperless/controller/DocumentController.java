@@ -4,7 +4,6 @@ import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
-import at.fhtw.swen3.paperless.service.dto.TagDto;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -67,26 +66,6 @@ public class DocumentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         documentService.delete(id);
-    }
-
-    @PostMapping("/{id}/tags")
-    public ResponseEntity<TagDto> addTag(@PathVariable Long id, @Valid @RequestBody TagDto tag) {
-        String name = documentService.addTag(id, tag.name());
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{name}").buildAndExpand(name).toUri();
-        return ResponseEntity.created(location).body(new TagDto(name));
-    }
-
-    @GetMapping("/{id}/tags")
-    public ResponseEntity<List<String>> getTags(@PathVariable Long id) {
-        List<String> tags = documentService.getTags(id);
-        return tags.isEmpty() ? ResponseEntity.noContent().build() : ResponseEntity.ok(tags);
-    }
-
-    @DeleteMapping("/{id}/tags/{name}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeTag(@PathVariable Long id, @PathVariable String name) {
-        documentService.removeTag(id, name);
     }
 
     private static String validatePdf(MultipartFile file) {

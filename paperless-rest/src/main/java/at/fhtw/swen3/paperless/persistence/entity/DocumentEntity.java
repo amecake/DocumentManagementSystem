@@ -3,8 +3,6 @@ package at.fhtw.swen3.paperless.persistence.entity;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Table(name = "documents")
@@ -32,13 +30,6 @@ public class DocumentEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @ManyToMany
-    @JoinTable(
-            name = "document_tags",
-            joinColumns = @JoinColumn(name = "document_id"),
-            inverseJoinColumns = @JoinColumn(name = "tag_id")
-    )
-    private Set<TagEntity> tags = new HashSet<>();
 
     @PrePersist
     void onCreate() {
@@ -65,6 +56,4 @@ public class DocumentEntity {
     public void setUploadedAt(Instant uploadedAt) { this.uploadedAt = uploadedAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-    public Set<TagEntity> getTags() { return tags; }
-    public void setTags(Set<TagEntity> tags) { this.tags = tags; }
 }
