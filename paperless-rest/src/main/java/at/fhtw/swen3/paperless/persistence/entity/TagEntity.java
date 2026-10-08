@@ -1,22 +1,21 @@
 package at.fhtw.swen3.paperless.persistence.entity;
 
 import jakarta.persistence.*;
-import java.util.HashSet;
-import java.util.Set;
+
+import java.util.Objects;
 
 @Entity
 @Table(name = "tags")
 public class TagEntity {
 
+    public static final int MAX_NAME_LENGTH = 50;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = MAX_NAME_LENGTH)
     private String name;
-
-    @ManyToMany(mappedBy = "tags")
-    private Set<DocumentEntity> documents = new HashSet<>();
 
     public TagEntity() {}
 
@@ -28,6 +27,15 @@ public class TagEntity {
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public Set<DocumentEntity> getDocuments() { return documents; }
-    public void setDocuments(Set<DocumentEntity> documents) { this.documents = documents; }
+
+    /** Tag names are unique (and stored normalised), so the name identifies a tag. */
+    @Override
+    public boolean equals(Object o) {
+        return this == o || (o instanceof TagEntity other && Objects.equals(name, other.name));
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(name);
+    }
 }

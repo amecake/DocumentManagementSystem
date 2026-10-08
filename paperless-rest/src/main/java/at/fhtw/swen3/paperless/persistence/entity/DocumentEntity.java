@@ -1,10 +1,10 @@
 package at.fhtw.swen3.paperless.persistence.entity;
 
 import jakarta.persistence.*;
-import java.util.HashSet;
-import java.util.Set;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "documents")
@@ -32,7 +32,7 @@ public class DocumentEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @ManyToMany(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+    @ManyToMany
     @JoinTable(
             name = "document_tags",
             joinColumns = @JoinColumn(name = "document_id"),

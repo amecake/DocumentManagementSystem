@@ -1,5 +1,6 @@
 package at.fhtw.swen3.paperless.service;
 
+import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
@@ -17,7 +18,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -123,33 +123,61 @@ class DocumentServiceTest {
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
         when(tagRepository.findByName("finance")).thenReturn(Optional.empty());
         when(tagRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Set<String> tags = service.addTag(1L, "finance");
-
-        assertThat(tags).containsExactly("finance");
+        assertThat(service.addTag(1L, "finance")).isEqualTo("finance");
+        assertThat(doc.getTags()).containsExactly(new TagEntity("finance"));
     }
 
     @Test
-    void addTag_existingTagName_reusesTag() {
+    void addTag_normalisesName() {
         DocumentEntity doc = document(1, "invoice");
-        TagEntity existing = new TagEntity("finance");
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
-        when(tagRepository.findByName("finance")).thenReturn(Optional.of(existing));
-        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(tagRepository.findByName("finance")).thenReturn(Optional.of(new TagEntity("finance")));
 
-        service.addTag(1L, "finance");
-
+        assertThat(service.addTag(1L, "  Finance ")).isEqualTo("finance");
         verify(tagRepository, never()).save(any());
     }
 
     @Test
-    void getTags_returnsTagNames() {
+    void addTag_alreadyOnDocument_throwsConflict() {
         DocumentEntity doc = document(1, "invoice");
         doc.getTags().add(new TagEntity("finance"));
-        doc.getTags().add(new TagEntity("urgent"));
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        // a separately loaded instance with the same name counts as the same tag
+        when(tagRepository.findByName("finance")).thenReturn(Optional.of(new TagEntity("finance")));
+
+        assertThatThrownBy(() -> service.addTag(1L, "FINANCE")).isInstanceOf(ConflictException.class);
+        assertThat(doc.getTags()).hasSize(1);
+    }
+
+    @Test
+    void removeTag_removesNormalisedName() {
+        DocumentEntity doc = document(1, "invoice");
+        doc.getTags().add(new TagEntity("finance"));
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
 
-        assertThat(service.getTags(1L)).containsExactlyInAnyOrder("finance", "urgent");
+        service.removeTag(1L, " Finance");
+
+        assertThat(doc.getTags()).isEmpty();
+    }
+
+    @Test
+    void removeTag_notOnDocument_doesNothing() {
+        DocumentEntity doc = document(1, "invoice");
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+
+        service.removeTag(1L, "finance");
+
+        assertThat(doc.getTags()).isEmpty();
+    }
+
+    @Test
+    void getTags_returnsSortedNames() {
+        DocumentEntity doc = document(1, "invoice");
+        doc.getTags().add(new TagEntity("urgent"));
+        doc.getTags().add(new TagEntity("finance"));
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+
+        assertThat(service.getTags(1L)).containsExactly("finance", "urgent");
     }
 }

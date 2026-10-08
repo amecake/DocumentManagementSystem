@@ -4,6 +4,7 @@ import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
+import at.fhtw.swen3.paperless.service.dto.TagDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
@@ -16,8 +17,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/documents")
@@ -69,13 +68,23 @@ public class DocumentController {
     }
 
     @PostMapping("/{id}/tags")
-    public Set<String> addTag(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return documentService.addTag(id, body.get("name"));
+    public ResponseEntity<TagDto> addTag(@PathVariable Long id, @Valid @RequestBody TagDto tag) {
+        String name = documentService.addTag(id, tag.name());
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{name}").buildAndExpand(name).toUri();
+        return ResponseEntity.created(location).body(new TagDto(name));
     }
 
     @GetMapping("/{id}/tags")
-    public Set<String> getTags(@PathVariable Long id) {
-        return documentService.getTags(id);
+    public ResponseEntity<List<String>> getTags(@PathVariable Long id) {
+        List<String> tags = documentService.getTags(id);
+        return tags.isEmpty() ? ResponseEntity.noContent().build() : ResponseEntity.ok(tags);
+    }
+
+    @DeleteMapping("/{id}/tags/{name}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeTag(@PathVariable Long id, @PathVariable String name) {
+        documentService.removeTag(id, name);
     }
 
     private static String validatePdf(MultipartFile file) {

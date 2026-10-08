@@ -1,5 +1,6 @@
 package at.fhtw.swen3.paperless.controller;
 
+import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
@@ -133,6 +134,61 @@ class DocumentControllerTest {
     void delete_returns204() throws Exception {
         mvc.perform(delete("/api/documents/1")).andExpect(status().isNoContent());
         verify(documentService).delete(1L);
+    }
+
+    @Test
+    void addTag_returns201WithLocation() throws Exception {
+        when(documentService.addTag(1L, "Finance")).thenReturn("finance");
+
+        mvc.perform(post("/api/documents/1/tags").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Finance\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "http://localhost/api/documents/1/tags/finance"))
+                .andExpect(jsonPath("$.name").value("finance"));
+    }
+
+    @Test
+    void addTag_blankName_returns400() throws Exception {
+        mvc.perform(post("/api/documents/1/tags").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void addTag_tooLong_returns400() throws Exception {
+        String body = "{\"name\":\"" + "x".repeat(51) + "\"}";
+        mvc.perform(post("/api/documents/1/tags").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void addTag_duplicate_returns409() throws Exception {
+        when(documentService.addTag(1L, "finance")).thenThrow(new ConflictException("already tagged"));
+
+        mvc.perform(post("/api/documents/1/tags").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"finance\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void getTags_returnsList() throws Exception {
+        when(documentService.getTags(1L)).thenReturn(List.of("finance", "urgent"));
+
+        mvc.perform(get("/api/documents/1/tags"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0]").value("finance"));
+    }
+
+    @Test
+    void getTags_none_returns204() throws Exception {
+        when(documentService.getTags(1L)).thenReturn(List.of());
+
+        mvc.perform(get("/api/documents/1/tags")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void removeTag_returns204() throws Exception {
+        mvc.perform(delete("/api/documents/1/tags/finance")).andExpect(status().isNoContent());
+        verify(documentService).removeTag(1L, "finance");
     }
 
     @Test
