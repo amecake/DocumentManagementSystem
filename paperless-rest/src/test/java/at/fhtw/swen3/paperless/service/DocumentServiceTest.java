@@ -1,6 +1,5 @@
 package at.fhtw.swen3.paperless.service;
 
-import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
@@ -15,7 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -52,14 +50,13 @@ class DocumentServiceTest {
 
     @Test
     void upload_validPdf_isPersisted() {
-        var file = new MockMultipartFile("file", "invoice.pdf", "application/pdf", "%PDF-1.4".getBytes());
         when(documentRepository.save(any())).thenAnswer(inv -> {
             DocumentEntity e = inv.getArgument(0);
             e.setId(1L);
             return e;
         });
 
-        DocumentDto result = service.upload("My invoice", file);
+        DocumentDto result = service.upload("My invoice", "invoice.pdf", 8);
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.title()).isEqualTo("My invoice");
@@ -68,27 +65,9 @@ class DocumentServiceTest {
 
     @Test
     void upload_withoutTitle_usesFilename() {
-        var file = new MockMultipartFile("file", "scan.pdf", "application/pdf", "%PDF".getBytes());
         when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThat(service.upload("  ", file).title()).isEqualTo("scan.pdf");
-    }
-
-    @Test
-    void upload_emptyFile_throws() {
-        var file = new MockMultipartFile("file", "empty.pdf", "application/pdf", new byte[0]);
-
-        assertThatThrownBy(() -> service.upload("x", file)).isInstanceOf(InvalidFileException.class);
-        verifyNoInteractions(documentRepository);
-    }
-
-    @Test
-    void upload_nonPdf_throws() {
-        var file = new MockMultipartFile("file", "photo.png", "image/png", new byte[]{1, 2});
-
-        assertThatThrownBy(() -> service.upload("x", file))
-                .isInstanceOf(InvalidFileException.class)
-                .hasMessageContaining("PDF");
+        assertThat(service.upload("  ", "scan.pdf", 4).title()).isEqualTo("scan.pdf");
     }
 
     @Test

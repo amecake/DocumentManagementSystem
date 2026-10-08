@@ -1,6 +1,5 @@
 package at.fhtw.swen3.paperless.service;
 
-import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
@@ -16,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -37,23 +35,15 @@ public class DocumentService {
         this.tagRepository = tagRepository;
     }
 
-    public DocumentDto upload(String title, MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new InvalidFileException("File must not be empty");
-        }
-        String filename = StringUtils.cleanPath(file.getOriginalFilename() == null ? "" : file.getOriginalFilename());
-        if (!PDF.equals(file.getContentType()) && !filename.toLowerCase().endsWith(".pdf")) {
-            throw new InvalidFileException("Only PDF documents are supported");
-        }
-
+    public DocumentDto upload(String title, String filename, long fileSize) {
         DocumentEntity entity = new DocumentEntity();
         entity.setTitle(StringUtils.hasText(title) ? title.trim() : filename);
         entity.setOriginalFilename(filename);
         entity.setContentType(PDF);
-        entity.setFileSize(file.getSize());
+        entity.setFileSize(fileSize);
 
         DocumentEntity saved = documentRepository.save(entity);
-        log.info("Document uploaded: id={}, file={}, size={} bytes", saved.getId(), filename, file.getSize());
+        log.info("Document uploaded: id={}, file={}, size={} bytes", saved.getId(), filename, fileSize);
         return mapper.toDto(saved);
     }
 

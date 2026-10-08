@@ -1,6 +1,5 @@
 package at.fhtw.swen3.paperless.controller;
 
-import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
@@ -37,31 +36,64 @@ class DocumentControllerTest {
     @Test
     void upload_returns201() throws Exception {
         var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
-        when(documentService.upload(eq("A"), any())).thenReturn(dto(1, "A"));
+        when(documentService.upload(eq("A"), eq("a.pdf"), eq(4L))).thenReturn(dto(1, "A"));
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "A"))
                 .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "http://localhost/api/documents/1"))
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("A"));
     }
 
     @Test
-    void upload_invalidFile_returns400() throws Exception {
+    void upload_nonPdf_returns400() throws Exception {
         var file = new MockMultipartFile("file", "a.png", "image/png", new byte[]{1});
-        when(documentService.upload(any(), any())).thenThrow(new InvalidFileException("Only PDF"));
 
         mvc.perform(multipart("/api/documents").file(file))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Only PDF"));
+                .andExpect(jsonPath("$.detail").value("Only PDF documents are supported"));
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void upload_emptyFile_returns400() throws Exception {
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", new byte[0]);
+
+        mvc.perform(multipart("/api/documents").file(file)).andExpect(status().isBadRequest());
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void upload_titleTooLong_returns400() throws Exception {
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
+
+        mvc.perform(multipart("/api/documents").file(file).param("title", "x".repeat(256)))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void upload_filenameTooLong_returns400() throws Exception {
+        var file = new MockMultipartFile("file", "x".repeat(252) + ".pdf", "application/pdf", "%PDF".getBytes());
+
+        mvc.perform(multipart("/api/documents").file(file)).andExpect(status().isBadRequest());
+        verifyNoInteractions(documentService);
     }
 
     @Test
     void getAll_returnsList() throws Exception {
-        when(documentService.findAll()).thenReturn(List.of(dto(1, "A"), dto(2, "B")));
+        when(documentService.search(null)).thenReturn(List.of(dto(1, "A"), dto(2, "B")));
 
         mvc.perform(get("/api/documents"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void getAll_empty_returns204() throws Exception {
+        when(documentService.search(null)).thenReturn(List.of());
+
+        mvc.perform(get("/api/documents")).andExpect(status().isNoContent());
     }
 
     @Test
@@ -76,7 +108,7 @@ class DocumentControllerTest {
     void search_passesQuery() throws Exception {
         when(documentService.search("hello")).thenReturn(List.of(dto(1, "Hello")));
 
-        mvc.perform(get("/api/documents/search").param("q", "hello"))
+        mvc.perform(get("/api/documents").param("q", "hello"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Hello"));
     }
@@ -117,7 +149,7 @@ class DocumentControllerTest {
 
     @Test
     void unexpectedError_returns500() throws Exception {
-        when(documentService.findAll()).thenThrow(new IllegalStateException("boom"));
+        when(documentService.search(null)).thenThrow(new IllegalStateException("boom"));
 
         mvc.perform(get("/api/documents")).andExpect(status().isInternalServerError());
     }
