@@ -2,13 +2,18 @@ package at.fhtw.swen3.paperless.controller;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.security.JwtService;
+import at.fhtw.swen3.paperless.security.SecurityConfig;
 import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -22,6 +27,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(DocumentController.class)
+@Import(SecurityConfig.class)
+@WithMockUser
 class DocumentControllerTest {
 
     @Autowired
@@ -29,6 +36,9 @@ class DocumentControllerTest {
 
     @MockitoBean
     private DocumentService documentService;
+
+    @MockitoBean
+    private JwtService jwtService;
 
     private static DocumentDto dto(long id, String title) {
         return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now());
@@ -69,7 +79,8 @@ class DocumentControllerTest {
         var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "x".repeat(256)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("title must be at most 255 characters"));
         verifyNoInteractions(documentService);
     }
 
@@ -192,6 +203,14 @@ class DocumentControllerTest {
     }
 
     @Test
+    @WithAnonymousUser
+    void notLoggedIn_returns401() throws Exception {
+        mvc.perform(get("/api/documents")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    @WithAnonymousUser
     void unknownUrl_returns404() throws Exception {
         mvc.perform(get("/api/gibtsned")).andExpect(status().isNotFound());
     }

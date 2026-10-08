@@ -24,6 +24,7 @@ services:
       DB_URL: jdbc:postgresql://db:5432/paperless
       DB_USER: paperless
       DB_PASSWORD: paperless
+      JWT_SECRET: ${JWT_SECRET:-change-me-local-docker-secret-0123456789}
     ports:
       - "8080:8080"
     depends_on:

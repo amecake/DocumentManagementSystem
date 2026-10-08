@@ -17,6 +17,12 @@ spring:
       max-file-size: 20MB
       max-request-size: 20MB
 
+security:
+  jwt:
+    # set JWT_SECRET in production; the default is only for local development
+    secret: ${JWT_SECRET:local-dev-secret-change-me-0123456789abcdef}
+    validity: ${JWT_VALIDITY:PT24H}
+
 logging:
   level:
     at.fhtw.swen3.paperless: INFO

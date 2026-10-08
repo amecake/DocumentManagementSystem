@@ -5,6 +5,7 @@ import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.dto.TagDto;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/documents")
+@SecurityRequirement(name = "bearerAuth")
 public class DocumentController {
 
     private static final String PDF = "application/pdf";
