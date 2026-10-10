@@ -1,8 +1,11 @@
 package at.fhtw.swen3.paperless.service;
 
+import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
+import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
+import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.mapper.DocumentMapper;
@@ -13,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @Transactional
@@ -23,10 +27,12 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final DocumentMapper mapper;
+    private final TagRepository tagRepository;
 
-    public DocumentService(DocumentRepository documentRepository, DocumentMapper mapper) {
+    public DocumentService(DocumentRepository documentRepository, DocumentMapper mapper, TagRepository tagRepository) {
         this.documentRepository = documentRepository;
         this.mapper = mapper;
+        this.tagRepository = tagRepository;
     }
 
     public DocumentDto upload(String title, String filename, long fileSize) {
@@ -70,6 +76,40 @@ public class DocumentService {
         DocumentEntity entity = getDocument(id);
         documentRepository.delete(entity);
         log.info("Document {} deleted", id);
+    }
+
+    /** Adds a tag; the name is trimmed and lower-cased so "Finance" and " finance " are the same tag. */
+    public String addTag(Long documentId, String tagName) {
+        DocumentEntity document = getDocument(documentId);
+        String name = normalize(tagName);
+        TagEntity tag = tagRepository.findByName(name)
+                .orElseGet(() -> tagRepository.save(new TagEntity(name)));
+        if (!document.getTags().add(tag)) {
+            throw new ConflictException("Document " + documentId + " already has tag '" + name + "'");
+        }
+        log.info("Tag '{}' added to document {}", name, documentId);
+        return name;
+    }
+
+    /** Removing a tag the document does not have is not an error (DELETE is idempotent). */
+    public void removeTag(Long documentId, String tagName) {
+        DocumentEntity document = getDocument(documentId);
+        String name = normalize(tagName);
+        if (document.getTags().removeIf(tag -> tag.getName().equals(name))) {
+            log.info("Tag '{}' removed from document {}", name, documentId);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getTags(Long documentId) {
+        return getDocument(documentId).getTags().stream()
+                .map(TagEntity::getName)
+                .sorted()
+                .toList();
+    }
+
+    private static String normalize(String tagName) {
+        return tagName.trim().toLowerCase(Locale.ROOT);
     }
 
     private DocumentEntity getDocument(Long id) {

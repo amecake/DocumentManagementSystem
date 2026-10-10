@@ -19,8 +19,9 @@ Fixes from the Sprint 1 code review:
 - [x] `DocumentService` no longer takes a `MultipartFile`, input validation is in the controller
 - [x] 201 with `Location` header, 204 for empty results, `ResponseEntity` in the controller
 - [x] Search via `GET /api/documents?q=` instead of `/search`
-- [x] Length limits (255) checked in the API → 400
-- [x] Tags removed to keep the scope small
+- [x] Tags: blank names rejected, names normalised, 409 for duplicates, remove endpoint,
+      one-directional relation, `equals`/`hashCode` on `TagEntity`
+- [x] Length limits (255 / 50) checked in the API → 400
 
 Sprint 2 tasks:
 
@@ -56,6 +57,11 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 | GET | `/api/documents/{id}` | Get one document |
 | PUT | `/api/documents/{id}` | Update the title |
 | DELETE | `/api/documents/{id}` | Delete a document |
+| POST | `/api/documents/{id}/tags` (body: `{"name": "..."}`) | Add a tag → 201, 409 if the document already has it |
+| GET | `/api/documents/{id}/tags` | List tags (204 if there are none) |
+| DELETE | `/api/documents/{id}/tags/{name}` | Remove a tag → 204 |
+
+Tag names are trimmed and lower-cased, so `Finance` and ` finance ` are the same tag.
 
 ### Example
 
