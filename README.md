@@ -25,11 +25,11 @@ Fixes from the Sprint 1 code review:
 
 Sprint 2 tasks:
 
-- [ ] Webserver (nginx) integrated
-- [ ] Web UI incl. user-input validation
-- [ ] Dashboard and detail pages served by the webserver
-- [ ] Web page talks to the REST server
-- [ ] docker-compose.yml runs the UI in its own container
+- [x] Webserver (nginx) integrated
+- [x] Web UI incl. user-input validation
+- [x] Dashboard and detail pages served by the webserver
+- [x] Web page talks to the REST server
+- [x] docker-compose.yml runs the UI in its own container
 
 ## REST server (`paperless-rest`)
 
@@ -63,6 +63,22 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 
 Tag names are trimmed and lower-cased, so `Finance` and ` finance ` are the same tag.
 
+## Web UI (`paperless-webui`)
+
+Static HTML/CSS/JS, served by nginx.
+
+| Page | Description |
+|---|---|
+| `/` (`index.html`) | Login and registration |
+| `dashboard.html` | List documents, upload new ones, filter by tag |
+| `detail.html` | View/edit a document's title, manage its tags, delete it |
+
+The UI talks to the REST server directly from the browser (`http://localhost:8080/api`).
+Login stores the JWT in `localStorage` and sends it as `Authorization: Bearer <token>`
+on every subsequent request.
+
+Open: http://localhost/
+
 ### Example
 
 ```bash
@@ -89,6 +105,11 @@ Coverage report: `paperless-rest/target/site/jacoco/index.html`
 ```bash
 docker compose up --build
 ```
+
+Starts the database, REST server and web UI together.
+
+- Web UI: http://localhost/
+- REST API / Swagger: http://localhost:8080/swagger-ui.html
 
 Set `JWT_SECRET` for anything other than local development.
 
