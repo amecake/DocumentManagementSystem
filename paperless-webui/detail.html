@@ -13,14 +13,14 @@
 
     <h2>Edit Title</h2>
     <form id="editForm">
-        <input type="text" id="newTitle" required>
+        <input type="text" id="newTitle" maxlength="255" required>
         <button type="submit">Save</button>
     </form>
 
     <h2>Tags</h2>
     <ul id="tagList"></ul>
     <form id="tagForm">
-        <input type="text" id="newTag" placeholder="Add a tag" required>
+        <input type="text" id="newTag" placeholder="Add a tag" maxlength="50" required>
         <button type="submit">Add Tag</button>
     </form>
 
@@ -34,9 +34,14 @@
 
     const params = new URLSearchParams(window.location.search);
     const docId = params.get("id");
+    if (!docId) window.location.href = "dashboard.html";
 
     async function loadDocument() {
       const res = await apiFetch(`/documents/${docId}`);
+      if (!res.ok) {
+        document.getElementById("docTitle").textContent = "Document not found";
+        return;
+      }
       const doc = await res.json();
       document.getElementById("docTitle").textContent = doc.title;
       document.getElementById("docInfo").textContent =
@@ -46,9 +51,7 @@
 
     async function loadTags() {
       const res = await apiFetch(`/documents/${docId}/tags`);
-      const tags = res.status === 204 ? [] : await res.json();
-      const res = await apiFetch(`/documents/${docId}/tags`);
-      const tags = await res.json();
+      const tags = res.ok && res.status !== 204 ? await res.json() : [];
       const list = document.getElementById("tagList");
       list.innerHTML = "";
       tags.forEach(tag => {
@@ -67,7 +70,11 @@
 
     document.getElementById("editForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const title = document.getElementById("newTitle").value;
+      const title = document.getElementById("newTitle").value.trim();
+      if (!title || title.length > 255) {
+        alert("Title must be between 1 and 255 characters");
+        return;
+      }
       const res = await apiFetch(`/documents/${docId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -79,7 +86,11 @@
 
     document.getElementById("tagForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const name = document.getElementById("newTag").value;
+      const name = document.getElementById("newTag").value.trim();
+      if (!name || name.length > 50) {
+        alert("Tag must be between 1 and 50 characters");
+        return;
+      }
       const res = await apiFetch(`/documents/${docId}/tags`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,6 +99,8 @@
       if (res.ok) {
         document.getElementById("newTag").value = "";
         loadTags();
+      } else if (res.status === 409) {
+        alert("This document already has that tag");
       } else {
         alert("Failed to add tag");
       }
