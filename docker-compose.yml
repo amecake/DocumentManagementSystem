@@ -31,5 +31,14 @@ services:
       db:
         condition: service_healthy
 
+  paperless-webui:
+    build:
+      context: ./paperless-webui
+    container_name: paperless-webui
+    ports:
+      - "80:80"
+    depends_on:
+      - paperless-rest
+
 volumes:
   paperless-db-data:

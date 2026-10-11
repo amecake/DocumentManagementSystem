@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Paperless</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <div class="topbar">
+        <h1>Paperless</h1>
+        <button id="logoutBtn">Logout</button>
+    </div>
+
+    <h2>Upload Document</h2>
+    <form id="uploadForm">
+        <input type="file" id="fileInput" accept="application/pdf" required>
+        <input type="text" id="titleInput" placeholder="Title (optional)">
+        <button type="submit">Upload</button>
+    </form>
+
+    <h2>Filter by Tag</h2>
+    <input type="text" id="tagFilter" placeholder="Type a tag to filter...">
+
+    <h2>Documents</h2>
+    <table id="docTable">
+        <thead>
+        <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th></th></tr>
+        </thead>
+        <tbody id="docTableBody"></tbody>
+    </table>
+</div>
+
+<script src="api.js"></script>
+<script>
+    if (!isLoggedIn()) window.location.href = "index.html";
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      clearToken();
+      window.location.href = "index.html";
+    });
+
+    let allDocs = [];
+    let docTags = {};
+
+    async function loadDocuments() {
+      const res = await apiFetch("/documents");
+      allDocs = await res.json();
+
+      for (const doc of allDocs) {
+        const tagsRes = await apiFetch(`/documents/${doc.id}/tags`);
+        docTags[doc.id] = tagsRes.status === 204 ? [] : await tagsRes.json();
+      }
+
+      renderDocuments(allDocs);
+    }
+
+    function renderDocuments(docs) {
+      const tbody = document.getElementById("docTableBody");
+      tbody.innerHTML = "";
+      docs.forEach(doc => {
+        const tags = docTags[doc.id] || [];
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${doc.title}</td>
+          <td>${doc.originalFilename}</td>
+          <td>${tags.join(", ")}</td>
+          <td>${new Date(doc.uploadedAt).toLocaleString()}</td>
+          <td><a href="detail.html?id=${doc.id}">View</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = document.getElementById("fileInput").files[0];
+      const title = document.getElementById("titleInput").value;
+
+      const formData = new FormData();
+      formData.append("file", file);
+      if (title) formData.append("title", title);
+
+      const res = await apiFetch("/documents", {
+        method: "POST",
+        body: formData
+      });
+
+      if (res.ok) {
+        document.getElementById("uploadForm").reset();
+        loadDocuments();
+      } else {
+        alert("Upload failed");
+      }
+    });
+
+    document.getElementById("tagFilter").addEventListener("input", (e) => {
+      const tag = e.target.value.trim().toLowerCase();
+      if (!tag) {
+        renderDocuments(allDocs);
+        return;
+      }
+      const filtered = allDocs.filter(doc => {
+        const tags = docTags[doc.id] || [];
+        return tags.some(t => t.toLowerCase().includes(tag));
+      });
+      renderDocuments(filtered);
+    });
+
+    loadDocuments();
+</script>
+</body>
+</html>

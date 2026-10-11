@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document Detail</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <a href="dashboard.html">&larr; Back</a>
+    <h1 id="docTitle"></h1>
+    <p id="docInfo"></p>
+
+    <h2>Edit Title</h2>
+    <form id="editForm">
+        <input type="text" id="newTitle" required>
+        <button type="submit">Save</button>
+    </form>
+
+    <h2>Tags</h2>
+    <ul id="tagList"></ul>
+    <form id="tagForm">
+        <input type="text" id="newTag" placeholder="Add a tag" required>
+        <button type="submit">Add Tag</button>
+    </form>
+
+    <h2>Danger Zone</h2>
+    <button id="deleteBtn">Delete Document</button>
+</div>
+
+<script src="api.js"></script>
+<script>
+    if (!isLoggedIn()) window.location.href = "index.html";
+
+    const params = new URLSearchParams(window.location.search);
+    const docId = params.get("id");
+
+    async function loadDocument() {
+      const res = await apiFetch(`/documents/${docId}`);
+      const doc = await res.json();
+      document.getElementById("docTitle").textContent = doc.title;
+      document.getElementById("docInfo").textContent =
+        `${doc.originalFilename} — ${(doc.fileSize / 1024).toFixed(1)} KB — uploaded ${new Date(doc.uploadedAt).toLocaleString()}`;
+      document.getElementById("newTitle").value = doc.title;
+    }
+
+    async function loadTags() {
+      const res = await apiFetch(`/documents/${docId}/tags`);
+      const tags = res.status === 204 ? [] : await res.json();
+      const res = await apiFetch(`/documents/${docId}/tags`);
+      const tags = await res.json();
+      const list = document.getElementById("tagList");
+      list.innerHTML = "";
+      tags.forEach(tag => {
+        const li = document.createElement("li");
+        li.textContent = tag + " ";
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "x";
+        delBtn.onclick = async () => {
+          await apiFetch(`/documents/${docId}/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+          loadTags();
+        };
+        li.appendChild(delBtn);
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById("editForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const title = document.getElementById("newTitle").value;
+      const res = await apiFetch(`/documents/${docId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title })
+      });
+      if (res.ok) loadDocument();
+      else alert("Update failed");
+    });
+
+    document.getElementById("tagForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("newTag").value;
+      const res = await apiFetch(`/documents/${docId}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        document.getElementById("newTag").value = "";
+        loadTags();
+      } else {
+        alert("Failed to add tag");
+      }
+    });
+
+    document.getElementById("deleteBtn").addEventListener("click", async () => {
+      if (!confirm("Delete this document?")) return;
+      const res = await apiFetch(`/documents/${docId}`, { method: "DELETE" });
+      if (res.ok) window.location.href = "dashboard.html";
+      else alert("Delete failed");
+    });
+
+    loadDocument();
+    loadTags();
+</script>
+</body>
+</html>
