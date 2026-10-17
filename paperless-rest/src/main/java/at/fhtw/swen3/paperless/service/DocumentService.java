@@ -2,7 +2,11 @@ package at.fhtw.swen3.paperless.service;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.messaging.DocumentUploadedEvent;
+import at.fhtw.swen3.paperless.messaging.OcrJobMessage;
+import at.fhtw.swen3.paperless.messaging.OcrResultMessage;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
+import at.fhtw.swen3.paperless.persistence.entity.ProcessingStatus;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
 import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
@@ -11,12 +15,16 @@ import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.mapper.DocumentMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -28,11 +36,14 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final DocumentMapper mapper;
     private final TagRepository tagRepository;
+    private final ApplicationEventPublisher events;
 
-    public DocumentService(DocumentRepository documentRepository, DocumentMapper mapper, TagRepository tagRepository) {
+    public DocumentService(DocumentRepository documentRepository, DocumentMapper mapper, TagRepository tagRepository,
+                           ApplicationEventPublisher events) {
         this.documentRepository = documentRepository;
         this.mapper = mapper;
         this.tagRepository = tagRepository;
+        this.events = events;
     }
 
     public DocumentDto upload(String title, String filename, long fileSize) {
@@ -44,7 +55,40 @@ public class DocumentService {
 
         DocumentEntity saved = documentRepository.save(entity);
         log.info("Document uploaded: id={}, file={}, size={} bytes", saved.getId(), filename, fileSize);
+        events.publishEvent(new DocumentUploadedEvent(saved.getId(), filename));
         return mapper.toDto(saved);
+    }
+
+    /** Result from the worker. The document may have been deleted in the meantime. */
+    public void applyOcrResult(OcrResultMessage result) {
+        Optional<DocumentEntity> found = documentRepository.findById(result.documentId());
+        if (found.isEmpty()) {
+            log.warn("OCR result for unknown document {} ignored", result.documentId());
+            return;
+        }
+        DocumentEntity entity = found.get();
+        entity.setProcessedAt(Instant.now());
+        if (result.success()) {
+            entity.setStatus(ProcessingStatus.COMPLETED);
+            entity.setOcrText(result.text());
+            log.info("OCR completed for document {}", entity.getId());
+        } else {
+            entity.setStatus(ProcessingStatus.FAILED);
+            log.warn("OCR failed for document {}: {}", entity.getId(), result.error());
+        }
+        documentRepository.save(entity);
+    }
+
+    /** Documents still QUEUED after {@code olderThan}; queuedAt is reset so they aren't resent every run. */
+    public List<OcrJobMessage> markStuckForRetry(Duration olderThan) {
+        Instant now = Instant.now();
+        List<DocumentEntity> stuck = documentRepository
+                .findByStatusAndQueuedAtBefore(ProcessingStatus.QUEUED, now.minus(olderThan));
+        stuck.forEach(doc -> doc.setQueuedAt(now));
+        documentRepository.saveAll(stuck);
+        return stuck.stream()
+                .map(doc -> new OcrJobMessage(doc.getId(), doc.getOriginalFilename()))
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -10,6 +10,8 @@
     <a href="dashboard.html">&larr; Back</a>
     <h1 id="docTitle"></h1>
     <p id="docInfo"></p>
+    <p>OCR status: <strong id="docStatus"></strong></p>
+    <pre id="ocrText"></pre>
 
     <h2>Edit Title</h2>
     <form id="editForm">
@@ -47,6 +49,12 @@
       document.getElementById("docInfo").textContent =
         `${doc.originalFilename} — ${(doc.fileSize / 1024).toFixed(1)} KB — uploaded ${new Date(doc.uploadedAt).toLocaleString()}`;
       document.getElementById("newTitle").value = doc.title;
+      document.getElementById("docStatus").textContent = doc.status || "-";
+      document.getElementById("ocrText").textContent = doc.ocrText || "";
+
+      if (doc.status === "QUEUED") {
+        setTimeout(loadDocument, 3000);
+      }
     }
 
     async function loadTags() {

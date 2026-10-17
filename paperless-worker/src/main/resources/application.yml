@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: paperless-worker
+  main:
+    web-application-type: none
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:paperless}
+    password: ${RABBITMQ_PASSWORD:paperless}
+    listener:
+      simple:
+        concurrency: 1
+        max-concurrency: 3
+        default-requeue-rejected: false
+
+paperless:
+  queues:
+    ocr: ocr.queue
+    ocr-result: ocr.result.queue
+  worker:
+    simulated-delay: ${WORKER_SIMULATED_DELAY:PT2S}
+
+logging:
+  level:
+    at.fhtw.swen3.paperless: INFO

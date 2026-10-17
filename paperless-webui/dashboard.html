@@ -25,7 +25,7 @@
     <h2>Documents</h2>
     <table id="docTable">
         <thead>
-        <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th></th></tr>
+        <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="docTableBody"></tbody>
     </table>
@@ -53,6 +53,11 @@
       }
 
       renderDocuments(allDocs);
+
+      // reload while the worker is still processing something
+      if (allDocs.some(doc => doc.status === "QUEUED")) {
+        setTimeout(loadDocuments, 3000);
+      }
     }
 
     function renderDocuments(docs) {
@@ -62,7 +67,7 @@
         const tags = docTags[doc.id] || [];
         const tr = document.createElement("tr");
         // textContent so titles/filenames are never interpreted as HTML
-        [doc.title, doc.originalFilename, tags.join(", "), new Date(doc.uploadedAt).toLocaleString()]
+        [doc.title, doc.originalFilename, tags.join(", "), new Date(doc.uploadedAt).toLocaleString(), doc.status || "-"]
           .forEach(text => {
             const td = document.createElement("td");
             td.textContent = text;

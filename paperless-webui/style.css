@@ -43,6 +43,16 @@ table {
   border-collapse: collapse;
 }
 
+pre {
+  white-space: pre-wrap;
+  background: #f5f5f5;
+  padding: 0.5rem;
+}
+
+pre:empty {
+  display: none;
+}
+
 th, td {
   text-align: left;
   padding: 0.5rem;

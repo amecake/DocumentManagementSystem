@@ -2,7 +2,11 @@ package at.fhtw.swen3.paperless.service;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.messaging.DocumentUploadedEvent;
+import at.fhtw.swen3.paperless.messaging.OcrJobMessage;
+import at.fhtw.swen3.paperless.messaging.OcrResultMessage;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
+import at.fhtw.swen3.paperless.persistence.entity.ProcessingStatus;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
 import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
@@ -15,13 +19,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,11 +41,14 @@ class DocumentServiceTest {
     @Mock
     private TagRepository tagRepository;
 
+    @Mock
+    private ApplicationEventPublisher events;
+
     private DocumentService service;
 
     @BeforeEach
     void setUp() {
-        service = new DocumentService(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository);
+        service = new DocumentService(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository, events);
     }
 
     private static DocumentEntity document(long id, String title) {
@@ -179,5 +190,69 @@ class DocumentServiceTest {
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
 
         assertThat(service.getTags(1L)).containsExactly("finance", "urgent");
+    }
+
+    @Test
+    void upload_raisesUploadedEventForOcrQueue() {
+        when(documentRepository.save(any())).thenAnswer(inv -> {
+            DocumentEntity e = inv.getArgument(0);
+            e.setId(7L);
+            return e;
+        });
+
+        service.upload("Scan", "scan.pdf", 4);
+
+        verify(events).publishEvent(new DocumentUploadedEvent(7L, "scan.pdf"));
+    }
+
+    @Test
+    void applyOcrResult_success_marksCompletedAndStoresText() {
+        DocumentEntity doc = document(1, "invoice");
+        doc.setStatus(ProcessingStatus.QUEUED);
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+
+        service.applyOcrResult(new OcrResultMessage(1L, true, "hello world", null));
+
+        assertThat(doc.getStatus()).isEqualTo(ProcessingStatus.COMPLETED);
+        assertThat(doc.getOcrText()).isEqualTo("hello world");
+        assertThat(doc.getProcessedAt()).isNotNull();
+        verify(documentRepository).save(doc);
+    }
+
+    @Test
+    void applyOcrResult_failure_marksFailed() {
+        DocumentEntity doc = document(1, "invoice");
+        doc.setStatus(ProcessingStatus.QUEUED);
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+
+        service.applyOcrResult(new OcrResultMessage(1L, false, null, "unreadable"));
+
+        assertThat(doc.getStatus()).isEqualTo(ProcessingStatus.FAILED);
+        assertThat(doc.getOcrText()).isNull();
+    }
+
+    @Test
+    void applyOcrResult_unknownDocument_isIgnored() {
+        when(documentRepository.findById(99L)).thenReturn(Optional.empty());
+
+        service.applyOcrResult(new OcrResultMessage(99L, true, "text", null));
+
+        verify(documentRepository, never()).save(any());
+    }
+
+    @Test
+    void markStuckForRetry_resetsQueueTimeAndReturnsJobs() {
+        DocumentEntity doc = document(3, "old");
+        doc.setStatus(ProcessingStatus.QUEUED);
+        Instant longAgo = Instant.now().minus(Duration.ofHours(1));
+        doc.setQueuedAt(longAgo);
+        when(documentRepository.findByStatusAndQueuedAtBefore(eq(ProcessingStatus.QUEUED), any()))
+                .thenReturn(List.of(doc));
+
+        List<OcrJobMessage> jobs = service.markStuckForRetry(Duration.ofMinutes(2));
+
+        assertThat(jobs).containsExactly(new OcrJobMessage(3L, "old.pdf"));
+        assertThat(doc.getQueuedAt()).isAfter(longAgo);
+        verify(documentRepository).saveAll(List.of(doc));
     }
 }
