@@ -25,7 +25,13 @@
 
     <section class="section">
         <h2>Documents</h2>
-        <input type="text" id="tagFilter" placeholder="Filter by tag..." style="max-width:320px;margin-bottom:1rem">
+
+        <div class="toolbar">
+            <input type="text" id="searchInput" placeholder="Search documents...">
+            <select id="tagFilter" disabled>
+                <option value="">No tags available</option>
+            </select>
+        </div>
 
         <div id="loader" class="loader"></div>
 
@@ -52,9 +58,14 @@
 
     let allDocs = [];
     let docTags = {};
+    let currentQuery = "";
+    let searchTimer = null;
 
     async function loadDocuments() {
-      const res = await apiFetch("/documents");
+      const url = currentQuery
+        ? `/documents?q=${encodeURIComponent(currentQuery)}`
+        : "/documents";
+      const res = await apiFetch(url);
       allDocs = res.status === 204 ? [] : await res.json();
 
       for (const doc of allDocs) {
@@ -63,12 +74,54 @@
       }
 
       document.getElementById("loader").hidden = true;
-      renderDocuments(allDocs);
+      populateTagFilter();
+      applyFilters();
 
       // reload while the worker is still processing something
       if (allDocs.some(doc => doc.status === "QUEUED")) {
         setTimeout(loadDocuments, 3000);
       }
+    }
+
+    function populateTagFilter() {
+      const select = document.getElementById("tagFilter");
+      const previous = select.value;
+      const tags = [...new Set(allDocs.flatMap(doc => docTags[doc.id] || []))].sort();
+
+      select.innerHTML = "";
+
+      if (tags.length === 0) {
+        const none = document.createElement("option");
+        none.value = "";
+        none.textContent = "No tags available";
+        select.appendChild(none);
+        select.disabled = true;
+        return;
+      }
+
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "All tags";
+      select.appendChild(all);
+
+      tags.forEach(tag => {
+        const opt = document.createElement("option");
+        opt.value = tag;
+        opt.textContent = tag;
+        select.appendChild(opt);
+      });
+
+      select.disabled = false;
+      select.value = tags.includes(previous) ? previous : "";
+    }
+
+    function applyFilters() {
+      const tag = document.getElementById("tagFilter").value;
+      if (!tag) {
+        renderDocuments(allDocs);
+        return;
+      }
+      renderDocuments(allDocs.filter(doc => (docTags[doc.id] || []).includes(tag)));
     }
 
     function renderDocuments(docs) {
@@ -167,18 +220,16 @@
       setLoading(btn, false);
     });
 
-    document.getElementById("tagFilter").addEventListener("input", (e) => {
-      const tag = e.target.value.trim().toLowerCase();
-      if (!tag) {
-        renderDocuments(allDocs);
-        return;
-      }
-      const filtered = allDocs.filter(doc => {
-        const tags = docTags[doc.id] || [];
-        return tags.some(t => t.toLowerCase().includes(tag));
-      });
-      renderDocuments(filtered);
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        currentQuery = e.target.value.trim();
+        document.getElementById("loader").hidden = false;
+        loadDocuments();
+      }, 300);
     });
+
+    document.getElementById("tagFilter").addEventListener("change", applyFilters);
 
     loadDocuments();
 </script>
