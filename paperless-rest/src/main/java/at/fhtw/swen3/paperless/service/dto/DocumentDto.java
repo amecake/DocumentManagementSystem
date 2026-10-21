@@ -9,8 +9,5 @@ public record DocumentDto(
         String contentType,
         long fileSize,
         Instant uploadedAt,
-        Instant updatedAt,
-        String status,
-        Instant processedAt,
-        String ocrText) {
+        Instant updatedAt) {
 }

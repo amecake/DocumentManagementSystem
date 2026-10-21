@@ -15,7 +15,7 @@
     <artifactId>paperless-worker</artifactId>
     <version>0.1.0</version>
     <name>paperless-worker</name>
-    <description>Document Management System - background worker (OCR jobs from RabbitMQ)</description>
+    <description>Document Management System - OCR worker (RabbitMQ consumer)</description>
 
     <properties>
         <java.version>25</java.version>
@@ -27,9 +27,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
+        <!-- JSON messages -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
 
         <dependency>

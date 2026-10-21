@@ -41,8 +41,7 @@ class DocumentControllerTest {
     private JwtService jwtService;
 
     private static DocumentDto dto(long id, String title) {
-        return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now(),
-                "QUEUED", null, null);
+        return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now());
     }
 
     @Test

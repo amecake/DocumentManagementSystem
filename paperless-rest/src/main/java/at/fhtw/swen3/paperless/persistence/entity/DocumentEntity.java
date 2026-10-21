@@ -32,19 +32,6 @@ public class DocumentEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "processing_status", length = 20)
-    private ProcessingStatus status;
-
-    @Column(name = "queued_at")
-    private Instant queuedAt;
-
-    @Column(name = "processed_at")
-    private Instant processedAt;
-
-    @Column(name = "ocr_text", columnDefinition = "TEXT")
-    private String ocrText;
-
     @ManyToMany
     @JoinTable(
             name = "document_tags",
@@ -57,10 +44,6 @@ public class DocumentEntity {
     void onCreate() {
         uploadedAt = Instant.now();
         updatedAt = uploadedAt;
-        if (status == null) {
-            status = ProcessingStatus.QUEUED;
-            queuedAt = uploadedAt;
-        }
     }
 
     @PreUpdate
@@ -82,14 +65,6 @@ public class DocumentEntity {
     public void setUploadedAt(Instant uploadedAt) { this.uploadedAt = uploadedAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-    public ProcessingStatus getStatus() { return status; }
-    public void setStatus(ProcessingStatus status) { this.status = status; }
-    public Instant getQueuedAt() { return queuedAt; }
-    public void setQueuedAt(Instant queuedAt) { this.queuedAt = queuedAt; }
-    public Instant getProcessedAt() { return processedAt; }
-    public void setProcessedAt(Instant processedAt) { this.processedAt = processedAt; }
-    public String getOcrText() { return ocrText; }
-    public void setOcrText(String ocrText) { this.ocrText = ocrText; }
     public Set<TagEntity> getTags() { return tags; }
     public void setTags(Set<TagEntity> tags) { this.tags = tags; }
 }

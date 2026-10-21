@@ -22,20 +22,6 @@ spring:
     username: ${RABBITMQ_USER:paperless}
     password: ${RABBITMQ_PASSWORD:paperless}
     connection-timeout: 5s
-    listener:
-      simple:
-        default-requeue-rejected: false
-        retry:
-          enabled: true
-          max-attempts: 3
-
-paperless:
-  queues:
-    ocr: ocr.queue
-    ocr-result: ocr.result.queue
-  ocr:
-    retry-after: ${OCR_RETRY_AFTER:PT2M}
-    retry-interval: ${OCR_RETRY_INTERVAL:PT1M}
 
 security:
   jwt:

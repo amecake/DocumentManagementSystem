@@ -33,12 +33,12 @@ Sprint 2 tasks:
 
 ## Sprint 3
 
-- [x] RabbitMQ added to docker-compose.yml
-- [x] Upload sends an OCR job to the queue
-- [x] Worker service (own container) processes the jobs
-- [x] Results go back over a second queue and are stored (status + text)
-- [x] Scheduled job resends documents that got stuck
-- [x] Status shown in the UI
+- [x] RabbitMQ runs in its own container (docker-compose.yml)
+- [x] Queues integrated into the REST server
+- [x] On upload the REST server sends a message to RabbitMQ
+- [x] The message is processed by an "empty" OCR worker (own container, only logs it)
+- [x] Failure handling: if RabbitMQ is down the upload still works, the error is logged
+- [x] Logging when a message is sent / received / fails
 
 ## REST server (`paperless-rest`)
 
@@ -72,30 +72,21 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 
 Tag names are trimmed and lower-cased, so `Finance` and ` finance ` are the same tag.
 
-Each document has a `status` (`QUEUED` → `COMPLETED` / `FAILED`), `processedAt` and `ocrText`,
-filled in by the background worker (see below).
-
 ## Queues (RabbitMQ + `paperless-worker`)
 
 ```
-upload -> paperless-rest -> ocr.queue -> paperless-worker
-               ^                              |
-               +------ ocr.result.queue <-----+
+POST /api/documents -> paperless-rest -> exchange "document.events" -> queue "paperless.ocr" -> paperless-worker
+                                         (routing key "document.uploaded")
 ```
 
-- After an upload is saved (status `QUEUED`), `OcrJobDispatcher` sends a job to `ocr.queue`.
-  This happens after the commit so the worker never gets an id that isn't in the DB yet.
-- `paperless-worker` is its own Spring Boot app/container. It processes the job and sends the
-  result to `ocr.result.queue`.
-- `OcrResultListener` stores the result -> `COMPLETED` (with `ocrText`) or `FAILED`.
-- `OcrRetryScheduler` runs every minute and resends documents that are still `QUEUED` after 2 min
-  (`OCR_RETRY_INTERVAL`, `OCR_RETRY_AFTER`).
+- `paperless-rest` (`messaging/`): `RabbitConfig` declares the exchange, `DocumentUploadedPublisher`
+  sends a `DocumentUploadedEvent` after the document is saved (`DocumentService.upload`).
+  If RabbitMQ is not reachable the error is logged and the upload still returns 201.
+- `paperless-worker`: `RabbitConfig` declares the queue and binds it to the exchange,
+  `DocumentUploadedListener` receives the event and writes a log entry. The actual OCR comes in sprint 4.
 
-If the worker is down the job just waits in the queue. If RabbitMQ is down the upload still works
-(201), the error is logged and the scheduler sends the job later.
-
-OCR itself is only simulated for now (`SimulatedOcrProcessor`) because we don't store the PDF
-content yet.
+Check it: upload a PDF, then `docker compose logs paperless-worker` shows
+`OCR worker received document id=..., title='...', file='...'`.
 
 RabbitMQ UI: http://localhost:15672 (`paperless` / `paperless`)
 
@@ -106,10 +97,9 @@ Static HTML/CSS/JS, served by nginx.
 | Page | Description |
 |---|---|
 | `/` (`index.html`) | Login and registration |
-| `dashboard.html` | List documents with their OCR status, upload new ones, filter by tag |
-| `detail.html` | View/edit a document's title, OCR status and text, manage its tags, delete it |
+| `dashboard.html` | List documents, upload new ones, filter by tag |
+| `detail.html` | View/edit a document's title, manage its tags, delete it |
 
-While a document is `QUEUED` the pages reload every 3 s.
 
 The UI talks to the REST server directly from the browser (`http://localhost:8080/api`).
 Login stores the JWT in `localStorage` and sends it as `Authorization: Bearer <token>`
@@ -145,7 +135,7 @@ cd paperless-worker
 docker run --rm -v "$PWD":/app -w /app maven:3.9-eclipse-temurin-25 mvn test
 ```
 
-The messaging classes are tested with Mockito, so no RabbitMQ is needed for the tests.
+The messaging classes are tested without a running RabbitMQ.
 
 ### Run with Docker
 

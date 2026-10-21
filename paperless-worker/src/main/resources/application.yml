@@ -10,16 +10,8 @@ spring:
     password: ${RABBITMQ_PASSWORD:paperless}
     listener:
       simple:
-        concurrency: 1
-        max-concurrency: 3
+        # a message that can't be read is dropped instead of being retried forever
         default-requeue-rejected: false
-
-paperless:
-  queues:
-    ocr: ocr.queue
-    ocr-result: ocr.result.queue
-  worker:
-    simulated-delay: ${WORKER_SIMULATED_DELAY:PT2S}
 
 logging:
   level:

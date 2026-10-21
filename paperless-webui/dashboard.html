@@ -38,7 +38,7 @@
         <div class="table-wrap">
             <table id="docTable" hidden>
                 <thead>
-                <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th>Status</th><th></th></tr>
+                <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th></th></tr>
                 </thead>
                 <tbody id="docTableBody"></tbody>
             </table>
@@ -76,11 +76,6 @@
       document.getElementById("loader").hidden = true;
       populateTagFilter();
       applyFilters();
-
-      // reload while the worker is still processing something
-      if (allDocs.some(doc => doc.status === "QUEUED")) {
-        setTimeout(loadDocuments, 3000);
-      }
     }
 
     function populateTagFilter() {
@@ -153,14 +148,6 @@
         const dateTd = document.createElement("td");
         dateTd.textContent = new Date(doc.uploadedAt).toLocaleString();
         tr.appendChild(dateTd);
-
-        const statusTd = document.createElement("td");
-        const badge = document.createElement("span");
-        const status = doc.status || "-";
-        badge.className = "badge badge-" + status.toLowerCase();
-        badge.textContent = status;
-        statusTd.appendChild(badge);
-        tr.appendChild(statusTd);
 
         const linkTd = document.createElement("td");
         const link = document.createElement("a");
