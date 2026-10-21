@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Issues and verifies JWTs. Logging out stores the token id, so a revoked token is rejected until it expires. */
 @Service
 public class JwtService {
 
@@ -42,7 +41,6 @@ public class JwtService {
                 .sign(algorithm);
     }
 
-    /** Returns the decoded token if the signature is valid, it is not expired and it was not logged out. */
     public Optional<DecodedJWT> verify(String token) {
         try {
             DecodedJWT jwt = JWT.require(algorithm).build().verify(token);

@@ -46,7 +46,6 @@ public class DocumentController {
         return ResponseEntity.created(location).body(created);
     }
 
-    /** Lists all documents, or only those matching {@code q} when it is given. */
     @GetMapping
     public ResponseEntity<List<DocumentDto>> getAll(@RequestParam(value = "q", required = false) String query) {
         List<DocumentDto> documents = documentService.search(query);

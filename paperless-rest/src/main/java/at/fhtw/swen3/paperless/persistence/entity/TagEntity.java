@@ -28,7 +28,6 @@ public class TagEntity {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
-    /** Tag names are unique (and stored normalised), so the name identifies a tag. */
     @Override
     public boolean equals(Object o) {
         return this == o || (o instanceof TagEntity other && Objects.equals(name, other.name));

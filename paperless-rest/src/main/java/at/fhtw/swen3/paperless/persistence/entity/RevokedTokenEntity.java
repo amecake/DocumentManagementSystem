@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 
-/** A JWT that was logged out before it expired. */
 @Entity
 @Table(name = "revoked_tokens")
 public class RevokedTokenEntity {

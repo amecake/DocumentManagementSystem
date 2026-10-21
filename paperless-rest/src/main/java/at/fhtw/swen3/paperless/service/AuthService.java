@@ -50,7 +50,6 @@ public class AuthService {
         UserEntity user = userRepository.findByUsernameIgnoreCase(request.username().trim())
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
                 .orElseThrow(() -> {
-                    // same message for unknown user and wrong password, so usernames can't be guessed
                     log.warn("Failed login for username '{}'", request.username());
                     return new InvalidCredentialsException();
                 });

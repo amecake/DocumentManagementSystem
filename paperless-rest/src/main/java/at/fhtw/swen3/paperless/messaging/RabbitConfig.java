@@ -18,7 +18,6 @@ public class RabbitConfig {
         return new TopicExchange(DOCUMENT_EVENTS_EXCHANGE);
     }
 
-    // messages are sent as JSON
     @Bean
     public MessageConverter jacksonMessageConverter(ObjectMapper objectMapper) {
         return new Jackson2JsonMessageConverter(objectMapper);

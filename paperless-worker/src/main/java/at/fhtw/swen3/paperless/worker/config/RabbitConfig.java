@@ -11,10 +11,6 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Exchange and routing key are the same as in paperless-rest; the queue and the binding
- * belong to the worker.
- */
 @Configuration
 public class RabbitConfig {
 

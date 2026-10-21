@@ -18,7 +18,6 @@ public class UserEntity {
     @Column(nullable = false)
     private String email;
 
-    /** BCrypt hash, never the plain password. */
     @Column(name = "password_hash", nullable = false, length = 60)
     private String passwordHash;
 

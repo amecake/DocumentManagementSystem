@@ -149,7 +149,6 @@ class DocumentServiceTest {
         DocumentEntity doc = document(1, "invoice");
         doc.getTags().add(new TagEntity("finance"));
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
-        // a separately loaded instance with the same name counts as the same tag
         when(tagRepository.findByName("finance")).thenReturn(Optional.of(new TagEntity("finance")));
 
         assertThatThrownBy(() -> service.addTag(1L, "FINANCE")).isInstanceOf(ConflictException.class);

@@ -50,7 +50,6 @@ public class DocumentService {
         DocumentEntity saved = documentRepository.save(entity);
         log.info("Document uploaded: id={}, file={}, size={} bytes", saved.getId(), filename, fileSize);
 
-        // the OCR worker picks this up from the queue
         uploadedPublisher.publish(new DocumentUploadedEvent(saved.getId(), saved.getTitle(), filename));
         return mapper.toDto(saved);
     }
@@ -86,7 +85,6 @@ public class DocumentService {
         log.info("Document {} deleted", id);
     }
 
-    /** Adds a tag; the name is trimmed and lower-cased so "Finance" and " finance " are the same tag. */
     public String addTag(Long documentId, String tagName) {
         DocumentEntity document = getDocument(documentId);
         String name = normalize(tagName);
@@ -99,7 +97,6 @@ public class DocumentService {
         return name;
     }
 
-    /** Removing a tag the document does not have is not an error (DELETE is idempotent). */
     public void removeTag(Long documentId, String tagName) {
         DocumentEntity document = getDocument(documentId);
         String name = normalize(tagName);

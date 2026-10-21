@@ -24,7 +24,7 @@ services:
       RABBITMQ_DEFAULT_PASS: paperless
     ports:
       - "5672:5672"     # AMQP
-      - "15672:15672"   # management UI: http://localhost:15672
+      - "15672:15672"   # management UI
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s

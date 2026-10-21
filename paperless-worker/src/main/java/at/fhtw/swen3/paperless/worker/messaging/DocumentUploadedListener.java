@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-/** "Empty" OCR worker: only logs the uploaded document, the OCR itself comes in sprint 4. */
 @Component
 public class DocumentUploadedListener {
 

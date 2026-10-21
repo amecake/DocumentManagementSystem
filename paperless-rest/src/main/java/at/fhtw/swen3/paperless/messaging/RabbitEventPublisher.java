@@ -6,10 +6,6 @@ import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.core.annotation.AnnotationUtils;
 
-/**
- * Sends events of type T to RabbitMQ. Exchange and routing key come from the
- * {@link RabbitPublication} annotation on the subclass.
- */
 public abstract class RabbitEventPublisher<T> {
 
     private static final Logger log = LoggerFactory.getLogger(RabbitEventPublisher.class);
@@ -35,7 +31,6 @@ public abstract class RabbitEventPublisher<T> {
             log.info("Published {} to exchange '{}' with routing key '{}'",
                     event.getClass().getSimpleName(), exchange, routingKey);
         } catch (AmqpException ex) {
-            // the upload is already saved, so a broker problem is only logged
             log.warn("Failed to publish {} to exchange '{}' with routing key '{}': {}",
                     event.getClass().getSimpleName(), exchange, routingKey, ex.getMessage());
         }

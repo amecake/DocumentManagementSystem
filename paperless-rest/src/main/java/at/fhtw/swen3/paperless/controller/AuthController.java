@@ -37,7 +37,6 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @SecurityRequirement(name = "bearerAuth")
     public void logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
-        // the security filter already checked that this is a valid "Bearer <token>" header
         authService.logout(authorization.substring("Bearer ".length()));
     }
 

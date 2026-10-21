@@ -11,7 +11,6 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Runs against in-memory H2, not the production PostgreSQL. */
 @DataJpaTest
 class DocumentRepositoryTest {
 

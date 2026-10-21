@@ -17,10 +17,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import java.util.stream.Collectors;
 
-/**
- * Translates exceptions into RFC 7807 responses. The base class already maps Spring MVC errors
- * (unknown URL -> 404, missing request part -> 400, wrong method -> 405, ...).
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
@@ -59,7 +55,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail));
     }
 
-    /** Validation of single parameters, e.g. {@code @Size} on a {@code @RequestParam}. */
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException ex,
                                                                             HttpHeaders headers, HttpStatusCode status,

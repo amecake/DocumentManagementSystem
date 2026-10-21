@@ -129,7 +129,6 @@
         const tags = docTags[doc.id] || [];
         const tr = document.createElement("tr");
 
-        // textContent so titles/filenames are never interpreted as HTML
         [doc.title, doc.originalFilename].forEach(text => {
           const td = document.createElement("td");
           td.textContent = text;

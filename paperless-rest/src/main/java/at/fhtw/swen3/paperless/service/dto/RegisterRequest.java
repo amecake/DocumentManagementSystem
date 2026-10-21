@@ -14,7 +14,6 @@ public record RegisterRequest(
         @Size(max = 255, message = "email must be at most 255 characters")
         String email,
 
-        // BCrypt only uses the first 72 bytes of a password
         @NotBlank(message = "password must not be blank")
         @Size(min = 8, max = 72, message = "password must be 8 to 72 characters")
         String password) {
