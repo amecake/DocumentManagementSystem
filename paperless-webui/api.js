@@ -30,3 +30,8 @@ async function apiFetch(path, options = {}) {
   }
   return res;
 }
+
+function setLoading(btn, loading) {
+  btn.disabled = loading;
+  btn.classList.toggle("loading", loading);
+}
