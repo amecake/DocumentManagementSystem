@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Register - Document Management System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="center">
+<main class="card narrow">
+    <h1>Register</h1>
+
+    <form id="registerForm">
+        <input type="text" id="regUsername" placeholder="Username" autocomplete="username" required>
+        <input type="email" id="regEmail" placeholder="Email" autocomplete="email" required>
+        <input type="password" id="regPassword" placeholder="Password" autocomplete="new-password" required>
+        <button type="submit" id="regBtn" class="btn">Create account</button>
+    </form>
+
+    <p id="message" class="message"></p>
+
+    <div class="switch">
+        <span>Already registered?</span>
+        <a href="index.html" class="btn btn-outline btn-small">Back to login</a>
+    </div>
+</main>
+
+<script src="api.js"></script>
+<script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("regBtn");
+      const msg = document.getElementById("message");
+      const username = document.getElementById("regUsername").value.trim();
+      const email = document.getElementById("regEmail").value.trim();
+      const password = document.getElementById("regPassword").value;
+
+      msg.classList.remove("ok");
+
+      if (username.length < 3) {
+        msg.textContent = "Username must be at least 3 characters";
+        return;
+      }
+      if (password.length < 8) {
+        msg.textContent = "Password must be at least 8 characters";
+        return;
+      }
+      if (!email.includes("@")) {
+        msg.textContent = "Invalid email";
+        return;
+      }
+
+      msg.textContent = "";
+      setLoading(btn, true);
+      try {
+        const res = await fetch(API_BASE + "/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, email, password })
+        });
+
+        if (res.ok) {
+          msg.classList.add("ok");
+          msg.textContent = "Registered! You can now log in.";
+          document.getElementById("registerForm").reset();
+        } else {
+          msg.textContent = "Registration failed";
+        }
+      } catch (err) {
+        msg.textContent = "Server not reachable";
+      }
+      setLoading(btn, false);
+    });
+</script>
+</body>
+</html>

@@ -2,34 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - Paperless</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DMS-Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-    <div class="topbar">
-        <h1>Paperless</h1>
-        <button id="logoutBtn">Logout</button>
+<main class="card">
+    <div class="page-head">
+        <h1>DMS-Dashboard</h1>
+        <button id="logoutBtn" class="btn btn-outline btn-small">Logout</button>
     </div>
 
-    <h2>Upload Document</h2>
-    <form id="uploadForm">
-        <input type="file" id="fileInput" accept="application/pdf" required>
-        <input type="text" id="titleInput" placeholder="Title (optional)" maxlength="255">
-        <button type="submit">Upload</button>
-    </form>
+    <section>
+        <h2>Upload document</h2>
+        <form id="uploadForm">
+            <input type="file" id="fileInput" accept="application/pdf" required>
+            <input type="text" id="titleInput" placeholder="Title (optional)" maxlength="255">
+            <button type="submit" id="uploadBtn" class="btn">Upload</button>
+        </form>
+        <p class="hint">PDF only, max. 20 MB</p>
+    </section>
 
-    <h2>Filter by Tag</h2>
-    <input type="text" id="tagFilter" placeholder="Type a tag to filter...">
+    <section class="section">
+        <h2>Documents</h2>
 
-    <h2>Documents</h2>
-    <table id="docTable">
-        <thead>
-        <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th>Status</th><th></th></tr>
-        </thead>
-        <tbody id="docTableBody"></tbody>
-    </table>
-</div>
+        <div class="toolbar">
+            <input type="text" id="searchInput" placeholder="Search documents...">
+            <select id="tagFilter" disabled>
+                <option value="">No tags available</option>
+            </select>
+        </div>
+
+        <div id="loader" class="loader"></div>
+
+        <div class="table-wrap">
+            <table id="docTable" hidden>
+                <thead>
+                <tr><th>Title</th><th>Filename</th><th>Tags</th><th>Uploaded</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody id="docTableBody"></tbody>
+            </table>
+        </div>
+        <p id="emptyState" class="empty" hidden>No documents found.</p>
+    </section>
+</main>
 
 <script src="api.js"></script>
 <script>
@@ -42,9 +58,14 @@
 
     let allDocs = [];
     let docTags = {};
+    let currentQuery = "";
+    let searchTimer = null;
 
     async function loadDocuments() {
-      const res = await apiFetch("/documents");
+      const url = currentQuery
+        ? `/documents?q=${encodeURIComponent(currentQuery)}`
+        : "/documents";
+      const res = await apiFetch(url);
       allDocs = res.status === 204 ? [] : await res.json();
 
       for (const doc of allDocs) {
@@ -52,7 +73,9 @@
         docTags[doc.id] = tagsRes.status === 204 ? [] : await tagsRes.json();
       }
 
-      renderDocuments(allDocs);
+      document.getElementById("loader").hidden = true;
+      populateTagFilter();
+      applyFilters();
 
       // reload while the worker is still processing something
       if (allDocs.some(doc => doc.status === "QUEUED")) {
@@ -60,31 +83,100 @@
       }
     }
 
+    function populateTagFilter() {
+      const select = document.getElementById("tagFilter");
+      const previous = select.value;
+      const tags = [...new Set(allDocs.flatMap(doc => docTags[doc.id] || []))].sort();
+
+      select.innerHTML = "";
+
+      if (tags.length === 0) {
+        const none = document.createElement("option");
+        none.value = "";
+        none.textContent = "No tags available";
+        select.appendChild(none);
+        select.disabled = true;
+        return;
+      }
+
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "All tags";
+      select.appendChild(all);
+
+      tags.forEach(tag => {
+        const opt = document.createElement("option");
+        opt.value = tag;
+        opt.textContent = tag;
+        select.appendChild(opt);
+      });
+
+      select.disabled = false;
+      select.value = tags.includes(previous) ? previous : "";
+    }
+
+    function applyFilters() {
+      const tag = document.getElementById("tagFilter").value;
+      if (!tag) {
+        renderDocuments(allDocs);
+        return;
+      }
+      renderDocuments(allDocs.filter(doc => (docTags[doc.id] || []).includes(tag)));
+    }
+
     function renderDocuments(docs) {
       const tbody = document.getElementById("docTableBody");
       tbody.innerHTML = "";
+      document.getElementById("emptyState").hidden = docs.length > 0;
+      document.getElementById("docTable").hidden = docs.length === 0;
+
       docs.forEach(doc => {
         const tags = docTags[doc.id] || [];
         const tr = document.createElement("tr");
+
         // textContent so titles/filenames are never interpreted as HTML
-        [doc.title, doc.originalFilename, tags.join(", "), new Date(doc.uploadedAt).toLocaleString(), doc.status || "-"]
-          .forEach(text => {
-            const td = document.createElement("td");
-            td.textContent = text;
-            tr.appendChild(td);
-          });
+        [doc.title, doc.originalFilename].forEach(text => {
+          const td = document.createElement("td");
+          td.textContent = text;
+          tr.appendChild(td);
+        });
+
+        const tagTd = document.createElement("td");
+        tags.forEach(t => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = t;
+          tagTd.appendChild(chip);
+        });
+        tr.appendChild(tagTd);
+
+        const dateTd = document.createElement("td");
+        dateTd.textContent = new Date(doc.uploadedAt).toLocaleString();
+        tr.appendChild(dateTd);
+
+        const statusTd = document.createElement("td");
+        const badge = document.createElement("span");
+        const status = doc.status || "-";
+        badge.className = "badge badge-" + status.toLowerCase();
+        badge.textContent = status;
+        statusTd.appendChild(badge);
+        tr.appendChild(statusTd);
+
         const linkTd = document.createElement("td");
         const link = document.createElement("a");
         link.href = `detail.html?id=${encodeURIComponent(doc.id)}`;
+        link.className = "btn btn-outline btn-small";
         link.textContent = "View";
         linkTd.appendChild(link);
         tr.appendChild(linkTd);
+
         tbody.appendChild(tr);
       });
     }
 
     document.getElementById("uploadForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const btn = document.getElementById("uploadBtn");
       const file = document.getElementById("fileInput").files[0];
       const title = document.getElementById("titleInput").value.trim();
 
@@ -109,31 +201,35 @@
       formData.append("file", file);
       if (title) formData.append("title", title);
 
-      const res = await apiFetch("/documents", {
-        method: "POST",
-        body: formData
-      });
+      setLoading(btn, true);
+      try {
+        const res = await apiFetch("/documents", {
+          method: "POST",
+          body: formData
+        });
 
-      if (res.ok) {
-        document.getElementById("uploadForm").reset();
-        loadDocuments();
-      } else {
+        if (res.ok) {
+          document.getElementById("uploadForm").reset();
+          await loadDocuments();
+        } else {
+          alert("Upload failed");
+        }
+      } catch (err) {
         alert("Upload failed");
       }
+      setLoading(btn, false);
     });
 
-    document.getElementById("tagFilter").addEventListener("input", (e) => {
-      const tag = e.target.value.trim().toLowerCase();
-      if (!tag) {
-        renderDocuments(allDocs);
-        return;
-      }
-      const filtered = allDocs.filter(doc => {
-        const tags = docTags[doc.id] || [];
-        return tags.some(t => t.toLowerCase().includes(tag));
-      });
-      renderDocuments(filtered);
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        currentQuery = e.target.value.trim();
+        document.getElementById("loader").hidden = false;
+        loadDocuments();
+      }, 300);
     });
+
+    document.getElementById("tagFilter").addEventListener("change", applyFilters);
 
     loadDocuments();
 </script>

@@ -2,33 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Document Detail</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-    <a href="dashboard.html">&larr; Back</a>
-    <h1 id="docTitle"></h1>
-    <p id="docInfo"></p>
-    <p>OCR status: <strong id="docStatus"></strong></p>
+<main class="card medium">
+    <div class="page-head">
+        <h1 id="docTitle">Loading...</h1>
+        <a href="dashboard.html" class="btn btn-outline btn-small">&larr; Back</a>
+    </div>
+
+    <div id="loader" class="loader"></div>
+
+    <div id="docMeta" class="meta"></div>
     <pre id="ocrText"></pre>
 
-    <h2>Edit Title</h2>
-    <form id="editForm">
-        <input type="text" id="newTitle" maxlength="255" required>
-        <button type="submit">Save</button>
-    </form>
+    <section class="section">
+        <h2>Edit title</h2>
+        <form id="editForm">
+            <input type="text" id="newTitle" maxlength="255" required>
+            <button type="submit" id="saveBtn" class="btn">Save</button>
+        </form>
+    </section>
 
-    <h2>Tags</h2>
-    <ul id="tagList"></ul>
-    <form id="tagForm">
-        <input type="text" id="newTag" placeholder="Add a tag" maxlength="50" required>
-        <button type="submit">Add Tag</button>
-    </form>
+    <section class="section">
+        <h2>Tags</h2>
+        <div id="tagList"></div>
+        <form id="tagForm">
+            <input type="text" id="newTag" placeholder="Add a tag" maxlength="50" required>
+            <button type="submit" id="tagBtn" class="btn btn-accent">Add tag</button>
+        </form>
+    </section>
 
-    <h2>Danger Zone</h2>
-    <button id="deleteBtn">Delete Document</button>
-</div>
+    <section class="section">
+        <div class="danger-zone">
+            <h2>Danger zone</h2>
+            <button id="deleteBtn" class="btn btn-danger">Delete document</button>
+        </div>
+    </section>
+</main>
 
 <script src="api.js"></script>
 <script>
@@ -38,19 +51,40 @@
     const docId = params.get("id");
     if (!docId) window.location.href = "dashboard.html";
 
+    function metaItem(label, value, badgeClass) {
+      const box = document.createElement("div");
+      box.className = "meta-item";
+      const l = document.createElement("span");
+      l.className = "meta-label";
+      l.textContent = label;
+      const v = document.createElement("span");
+      v.className = badgeClass ? "badge " + badgeClass : "meta-value";
+      v.textContent = value;
+      box.append(l, v);
+      return box;
+    }
+
     async function loadDocument() {
       const res = await apiFetch(`/documents/${docId}`);
+      document.getElementById("loader").hidden = true;
       if (!res.ok) {
         document.getElementById("docTitle").textContent = "Document not found";
         return;
       }
       const doc = await res.json();
       document.getElementById("docTitle").textContent = doc.title;
-      document.getElementById("docInfo").textContent =
-        `${doc.originalFilename} — ${(doc.fileSize / 1024).toFixed(1)} KB — uploaded ${new Date(doc.uploadedAt).toLocaleString()}`;
       document.getElementById("newTitle").value = doc.title;
-      document.getElementById("docStatus").textContent = doc.status || "-";
       document.getElementById("ocrText").textContent = doc.ocrText || "";
+
+      const status = doc.status || "-";
+      const meta = document.getElementById("docMeta");
+      meta.innerHTML = "";
+      meta.append(
+        metaItem("File", doc.originalFilename),
+        metaItem("Size", (doc.fileSize / 1024).toFixed(1) + " KB"),
+        metaItem("Uploaded", new Date(doc.uploadedAt).toLocaleString()),
+        metaItem("OCR status", status, "badge-" + status.toLowerCase())
+      );
 
       if (doc.status === "QUEUED") {
         setTimeout(loadDocument, 3000);
@@ -63,42 +97,51 @@
       const list = document.getElementById("tagList");
       list.innerHTML = "";
       tags.forEach(tag => {
-        const li = document.createElement("li");
-        li.textContent = tag + " ";
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = tag;
         const delBtn = document.createElement("button");
-        delBtn.textContent = "x";
+        delBtn.className = "chip-x";
+        delBtn.type = "button";
+        delBtn.textContent = "\u00d7";
+        delBtn.title = "Remove tag";
         delBtn.onclick = async () => {
           await apiFetch(`/documents/${docId}/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
           loadTags();
         };
-        li.appendChild(delBtn);
-        list.appendChild(li);
+        chip.appendChild(delBtn);
+        list.appendChild(chip);
       });
     }
 
     document.getElementById("editForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const btn = document.getElementById("saveBtn");
       const title = document.getElementById("newTitle").value.trim();
       if (!title || title.length > 255) {
         alert("Title must be between 1 and 255 characters");
         return;
       }
+      setLoading(btn, true);
       const res = await apiFetch(`/documents/${docId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title })
       });
-      if (res.ok) loadDocument();
+      if (res.ok) await loadDocument();
       else alert("Update failed");
+      setLoading(btn, false);
     });
 
     document.getElementById("tagForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const btn = document.getElementById("tagBtn");
       const name = document.getElementById("newTag").value.trim();
       if (!name || name.length > 50) {
         alert("Tag must be between 1 and 50 characters");
         return;
       }
+      setLoading(btn, true);
       const res = await apiFetch(`/documents/${docId}/tags`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,19 +149,25 @@
       });
       if (res.ok) {
         document.getElementById("newTag").value = "";
-        loadTags();
+        await loadTags();
       } else if (res.status === 409) {
         alert("This document already has that tag");
       } else {
         alert("Failed to add tag");
       }
+      setLoading(btn, false);
     });
 
     document.getElementById("deleteBtn").addEventListener("click", async () => {
       if (!confirm("Delete this document?")) return;
+      const btn = document.getElementById("deleteBtn");
+      setLoading(btn, true);
       const res = await apiFetch(`/documents/${docId}`, { method: "DELETE" });
       if (res.ok) window.location.href = "dashboard.html";
-      else alert("Delete failed");
+      else {
+        alert("Delete failed");
+        setLoading(btn, false);
+      }
     });
 
     loadDocument();
