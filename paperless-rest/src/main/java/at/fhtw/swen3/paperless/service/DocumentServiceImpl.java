@@ -5,6 +5,7 @@ import at.fhtw.swen3.paperless.exception.NotFoundException;
 import at.fhtw.swen3.paperless.messaging.DocumentEventPublisher;
 import at.fhtw.swen3.paperless.messaging.DocumentUploadedEvent;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
+import at.fhtw.swen3.paperless.persistence.entity.OcrStatus;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
 import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
@@ -47,11 +48,17 @@ public class DocumentServiceImpl implements DocumentService {
         entity.setOriginalFilename(filename);
         entity.setContentType(PDF);
         entity.setFileSize(fileSize);
+        entity.setOcrStatus(OcrStatus.PENDING);
 
         DocumentEntity saved = documentRepository.save(entity);
         log.info("Document uploaded: id={}, file={}, size={} bytes", saved.getId(), filename, fileSize);
 
-        eventPublisher.publish(new DocumentUploadedEvent(saved.getId(), saved.getTitle(), filename));
+        boolean queued = eventPublisher.publish(new DocumentUploadedEvent(saved.getId(), saved.getTitle(), filename));
+        if (!queued) {
+            // the upload itself worked, but nobody will process the document: make that visible
+            saved.setOcrStatus(OcrStatus.FAILED);
+            log.warn("Document {} saved, but the OCR message could not be sent (ocrStatus=FAILED)", saved.getId());
+        }
         return mapper.toDto(saved);
     }
 

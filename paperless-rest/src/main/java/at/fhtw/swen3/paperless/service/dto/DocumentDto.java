@@ -11,5 +11,6 @@ public record DocumentDto(
         long fileSize,
         Instant uploadedAt,
         Instant updatedAt,
-        List<String> tags) {
+        List<String> tags,
+        String ocrStatus) {
 }

@@ -6,5 +6,8 @@ package at.fhtw.swen3.paperless.messaging;
  */
 public interface DocumentEventPublisher {
 
-    void publish(DocumentUploadedEvent event);
+    /**
+     * @return true if the event was handed over to the broker, false if sending failed
+     */
+    boolean publish(DocumentUploadedEvent event);
 }

@@ -77,6 +77,25 @@ class DocumentServiceTest {
     }
 
     @Test
+    void upload_messageSent_statusIsPending() {
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(eventPublisher.publish(any())).thenReturn(true);
+
+        assertThat(service.upload("Scan", "scan.pdf", 4).ocrStatus()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void upload_messageCouldNotBeSent_documentIsSavedWithStatusFailed() {
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(eventPublisher.publish(any())).thenReturn(false);
+
+        DocumentDto result = service.upload("Scan", "scan.pdf", 4);
+
+        assertThat(result.title()).isEqualTo("Scan");
+        assertThat(result.ocrStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
     void findById_missing_throwsNotFound() {
         when(documentRepository.findById(99L)).thenReturn(Optional.empty());
 

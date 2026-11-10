@@ -50,6 +50,9 @@
     const docId = params.get("id");
     if (!docId) window.location.href = "dashboard.html";
 
+    // style.css already has these badge colours
+    const OCR_BADGES = { PENDING: "badge-queued", DONE: "badge-done", FAILED: "badge-failed" };
+
     function metaItem(label, value, badgeClass) {
       const box = document.createElement("div");
       box.className = "meta-item";
@@ -76,13 +79,18 @@
         document.getElementById("docTitle").textContent = doc.title;
         document.getElementById("newTitle").value = doc.title;
 
-        const meta = document.getElementById("docMeta");
-        meta.innerHTML = "";
-        meta.append(
+        const items = [
           metaItem("File", doc.originalFilename),
           metaItem("Size", (doc.fileSize / 1024).toFixed(1) + " KB"),
           metaItem("Uploaded", new Date(doc.uploadedAt).toLocaleString())
-        );
+        ];
+        // documents that were uploaded before the status existed have none
+        if (doc.ocrStatus) {
+          items.push(metaItem("OCR", doc.ocrStatus, OCR_BADGES[doc.ocrStatus]));
+        }
+        const meta = document.getElementById("docMeta");
+        meta.innerHTML = "";
+        meta.append(...items);
       } catch (err) {
         document.getElementById("docTitle").textContent = "Document could not be loaded";
         showError(NETWORK_ERROR);

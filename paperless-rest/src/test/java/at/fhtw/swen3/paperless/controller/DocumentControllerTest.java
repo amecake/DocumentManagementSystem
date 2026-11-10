@@ -43,7 +43,8 @@ class DocumentControllerTest {
     private JwtService jwtService;
 
     private static DocumentDto dto(long id, String title) {
-        return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now(), List.of());
+        return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now(),
+                List.of(), "PENDING");
     }
 
     @Test
@@ -55,7 +56,8 @@ class DocumentControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/documents/1"))
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.title").value("A"));
+                .andExpect(jsonPath("$.title").value("A"))
+                .andExpect(jsonPath("$.ocrStatus").value("PENDING"));
     }
 
     @Test
@@ -116,7 +118,7 @@ class DocumentControllerTest {
     @Test
     void getAll_includesTagsOfEachDocument() throws Exception {
         var tagged = new DocumentDto(1L, "A", "A.pdf", "application/pdf", 10, Instant.now(), Instant.now(),
-                List.of("finance", "urgent"));
+                List.of("finance", "urgent"), "PENDING");
         when(documentService.search(null)).thenReturn(List.of(tagged));
 
         mvc.perform(get("/api/documents"))

@@ -61,7 +61,7 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/documents` (multipart: `file`, optional `title`) | Upload a PDF → 201 + `Location`, 415 if the file is not a PDF |
-| GET | `/api/documents` | List all documents incl. their tags (204 if there are none) |
+| GET | `/api/documents` | List all documents incl. their tags and `ocrStatus` (204 if there are none) |
 | GET | `/api/documents?q=` | Search by title |
 | GET | `/api/documents/{id}` | Get one document |
 | PUT | `/api/documents/{id}` | Update the title |
@@ -88,6 +88,9 @@ There is only one kind of message, so no routing key logic is needed: the REST s
   sends a `DocumentUploadedEvent` after the document is saved (`DocumentServiceImpl.upload`).
   If RabbitMQ is not reachable the error is logged and the upload still returns 201 (deliberate decision:
   the document is stored, but this one message is lost; there is no retry yet).
+- `ocrStatus` of a document: `PENDING` when the message was sent, `FAILED` when RabbitMQ could not be
+  reached (so lost messages are visible in the API and on the detail page). The worker will set `DONE`
+  in sprint 4. Documents from before this column existed have no status.
 - `paperless-worker`: `RabbitConfig` declares the queue, `DocumentUploadedListener` receives the event
   and writes a log entry. The actual OCR comes in sprint 4.
 
@@ -104,7 +107,7 @@ Static HTML/CSS/JS, served by nginx.
 |---|---|
 | `/` (`index.html`) | Login and registration |
 | `dashboard.html` | List documents, upload new ones, filter by tag |
-| `detail.html` | View/edit a document's title, manage its tags, delete it |
+| `detail.html` | View/edit a document's title and OCR status, manage its tags, delete it |
 
 
 The UI talks to the REST server directly from the browser (`http://localhost:8080/api`).

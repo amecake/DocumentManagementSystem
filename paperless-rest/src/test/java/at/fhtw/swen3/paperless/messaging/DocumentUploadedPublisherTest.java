@@ -9,7 +9,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import java.net.ConnectException;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -25,18 +25,20 @@ class DocumentUploadedPublisherTest {
     void publish_sendsToTheOcrQueueThroughTheDefaultExchange() {
         var event = new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf");
 
-        new DocumentUploadedPublisher(rabbitTemplate).publish(event);
+        boolean sent = new DocumentUploadedPublisher(rabbitTemplate).publish(event);
 
         verify(rabbitTemplate).convertAndSend("", "paperless.ocr", event);
+        assertThat(sent).isTrue();
     }
 
     @Test
-    void publish_rabbitDown_doesNotThrow() {
+    void publish_rabbitDown_doesNotThrowAndReturnsFalse() {
         doThrow(new AmqpConnectException(new ConnectException("Connection refused")))
                 .when(rabbitTemplate).convertAndSend(anyString(), anyString(), any(Object.class));
 
-        assertThatCode(() -> new DocumentUploadedPublisher(rabbitTemplate)
-                .publish(new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf")))
-                .doesNotThrowAnyException();
+        boolean sent = new DocumentUploadedPublisher(rabbitTemplate)
+                .publish(new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf"));
+
+        assertThat(sent).isFalse();
     }
 }

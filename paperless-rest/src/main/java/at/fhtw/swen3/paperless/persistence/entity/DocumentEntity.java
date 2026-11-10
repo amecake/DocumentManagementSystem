@@ -32,6 +32,11 @@ public class DocumentEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    // nullable on purpose: documents that were uploaded before this column existed have no status
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ocr_status", length = 20)
+    private OcrStatus ocrStatus;
+
     @ManyToMany
     @JoinTable(
             name = "document_tags",
@@ -65,6 +70,8 @@ public class DocumentEntity {
     public void setUploadedAt(Instant uploadedAt) { this.uploadedAt = uploadedAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public OcrStatus getOcrStatus() { return ocrStatus; }
+    public void setOcrStatus(OcrStatus ocrStatus) { this.ocrStatus = ocrStatus; }
     public Set<TagEntity> getTags() { return tags; }
     public void setTags(Set<TagEntity> tags) { this.tags = tags; }
 }

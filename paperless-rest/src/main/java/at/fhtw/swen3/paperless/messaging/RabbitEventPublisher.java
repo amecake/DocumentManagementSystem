@@ -25,14 +25,21 @@ public abstract class RabbitEventPublisher<T> {
         this.routingKey = publication.routingKey();
     }
 
-    public void publish(T event) {
+    /**
+     * Sends the event. A broker problem is logged and not thrown, the result tells the caller what happened.
+     *
+     * @return true if the event was sent, false if RabbitMQ could not be reached
+     */
+    public boolean publish(T event) {
         try {
             rabbitTemplate.convertAndSend(exchange, routingKey, event);
             log.info("Published {} to exchange '{}' with routing key '{}'",
                     event.getClass().getSimpleName(), exchange, routingKey);
+            return true;
         } catch (AmqpException ex) {
             log.warn("Failed to publish {} to exchange '{}' with routing key '{}': {}",
                     event.getClass().getSimpleName(), exchange, routingKey, ex.getMessage());
+            return false;
         }
     }
 }
