@@ -32,6 +32,16 @@ async function apiFetch(path, options = {}) {
   return res;
 }
 
+// the REST server answers errors as problem details: use its "detail" text
+async function errorText(res, fallback) {
+  try {
+    const body = await res.json();
+    return body.detail || fallback;
+  } catch (err) {
+    return fallback;
+  }
+}
+
 function setLoading(btn, loading) {
   btn.disabled = loading;
   btn.classList.toggle("loading", loading);

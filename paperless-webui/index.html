@@ -50,7 +50,7 @@
           window.location.href = "dashboard.html";
           return;
         }
-        msg.textContent = "Login failed";
+        msg.textContent = await errorText(res, "Login failed");
       } catch (err) {
         msg.textContent = "Server not reachable";
       }

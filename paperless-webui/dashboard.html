@@ -200,6 +200,7 @@
       formData.append("file", file);
       if (title) formData.append("title", title);
 
+      clearError();
       setLoading(btn, true);
       try {
         const res = await apiFetch("/documents", {
@@ -211,7 +212,7 @@
           document.getElementById("uploadForm").reset();
           await loadDocuments();
         } else {
-          alert("Upload failed");
+          showError(await errorText(res, "Upload failed"));
         }
       } catch (err) {
         showError(NETWORK_ERROR);

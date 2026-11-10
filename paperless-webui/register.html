@@ -37,16 +37,12 @@
 
       msg.classList.remove("ok");
 
-      if (username.length < 3) {
-        msg.textContent = "Username must be at least 3 characters";
-        return;
-      }
-      if (password.length < 8) {
-        msg.textContent = "Password must be at least 8 characters";
-        return;
-      }
-      if (!email.includes("@")) {
-        msg.textContent = "Invalid email";
+      const errors = [];
+      if (username.length < 3) errors.push("Username must be at least 3 characters");
+      if (!email.includes("@")) errors.push("Invalid email");
+      if (password.length < 8) errors.push("Password must be at least 8 characters");
+      if (errors.length > 0) {
+        msg.textContent = errors.join(". ");
         return;
       }
 
@@ -64,7 +60,7 @@
           msg.textContent = "Registered! You can now log in.";
           document.getElementById("registerForm").reset();
         } else {
-          msg.textContent = "Registration failed";
+          msg.textContent = await errorText(res, "Registration failed");
         }
       } catch (err) {
         msg.textContent = "Server not reachable";

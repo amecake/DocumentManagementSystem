@@ -128,6 +128,7 @@
         alert("Title must be between 1 and 255 characters");
         return;
       }
+      clearError();
       setLoading(btn, true);
       try {
         const res = await apiFetch(`/documents/${docId}`, {
@@ -136,7 +137,7 @@
           body: JSON.stringify({ title })
         });
         if (res.ok) await loadDocument();
-        else alert("Update failed");
+        else showError(await errorText(res, "Update failed"));
       } catch (err) {
         showError(NETWORK_ERROR);
       } finally {
@@ -152,6 +153,7 @@
         alert("Tag must be between 1 and 50 characters");
         return;
       }
+      clearError();
       setLoading(btn, true);
       try {
         const res = await apiFetch(`/documents/${docId}/tags`, {
@@ -162,10 +164,8 @@
         if (res.ok) {
           document.getElementById("newTag").value = "";
           await loadTags();
-        } else if (res.status === 409) {
-          alert("This document already has that tag");
         } else {
-          alert("Failed to add tag");
+          showError(await errorText(res, "Failed to add tag"));
         }
       } catch (err) {
         showError(NETWORK_ERROR);
@@ -177,6 +177,7 @@
     document.getElementById("deleteBtn").addEventListener("click", async () => {
       if (!confirm("Delete this document?")) return;
       const btn = document.getElementById("deleteBtn");
+      clearError();
       setLoading(btn, true);
       try {
         const res = await apiFetch(`/documents/${docId}`, { method: "DELETE" });
@@ -184,7 +185,7 @@
           window.location.href = "dashboard.html";
           return;
         }
-        alert("Delete failed");
+        showError(await errorText(res, "Delete failed"));
       } catch (err) {
         showError(NETWORK_ERROR);
       }
