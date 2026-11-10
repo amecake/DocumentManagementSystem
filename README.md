@@ -14,7 +14,7 @@
 
 Fixes from the Sprint 1 code review:
 
-- [x] Login/logout and token handling (`/api/auth`)
+- [x] Login/logout and token handling (`/api/users`, `/api/sessions`)
 - [x] Unknown URLs return 404, bad requests (e.g. upload without file) return 400
 - [x] `DocumentService` no longer takes a `MultipartFile`, input validation is in the controller
 - [x] 201 with `Location` header, 204 for empty results, `ResponseEntity` in the controller
@@ -51,16 +51,16 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Create a user (body: `username`, `email`, `password`) → 201 |
-| POST | `/api/auth/login` | Log in (body: `username`, `password`) → token |
-| POST | `/api/auth/logout` | Revoke the current token → 204 |
-| GET | `/api/auth/me` | The logged-in user |
+| POST | `/api/users` | Create a user (body: `username`, `email`, `password`) → 201 |
+| POST | `/api/sessions` | Log in (body: `username`, `password`) → token |
+| DELETE | `/api/sessions/current` | Log out: revoke the current token → 204 |
+| GET | `/api/users/me` | The logged-in user |
 
 ### Documents
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/documents` (multipart: `file`, optional `title`) | Upload a PDF → 201 + `Location` |
+| POST | `/api/documents` (multipart: `file`, optional `title`) | Upload a PDF → 201 + `Location`, 415 if the file is not a PDF |
 | GET | `/api/documents` | List all documents (204 if there are none) |
 | GET | `/api/documents?q=` | Search by title |
 | GET | `/api/documents/{id}` | Get one document |
@@ -71,6 +71,7 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 | DELETE | `/api/documents/{id}/tags/{name}` | Remove a tag → 204 |
 
 Tag names are trimmed and lower-cased, so `Finance` and ` finance ` are the same tag.
+Tag names must not contain `/` or `\`.
 
 ## Queues (RabbitMQ + `paperless-worker`)
 
@@ -110,9 +111,9 @@ Open: http://localhost/
 ### Example
 
 ```bash
-curl -X POST localhost:8080/api/auth/register -H 'Content-Type: application/json' \
+curl -X POST localhost:8080/api/users -H 'Content-Type: application/json' \
      -d '{"username":"jarod","email":"jarod@example.com","password":"secret123"}'
-TOKEN=$(curl -s -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+TOKEN=$(curl -s -X POST localhost:8080/api/sessions -H 'Content-Type: application/json' \
      -d '{"username":"jarod","password":"secret123"}' | jq -r .accessToken)
 curl -H "Authorization: Bearer $TOKEN" -F "file=@HelloWorld.pdf" localhost:8080/api/documents
 ```

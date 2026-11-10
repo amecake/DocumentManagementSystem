@@ -55,7 +55,7 @@
       const btn = document.getElementById("logoutBtn");
       setLoading(btn, true);
       try {
-        await apiFetch("/auth/logout", { method: "POST" });
+        await apiFetch("/sessions/current", { method: "DELETE" });
       } catch (err) {
         // server not reachable or token already invalid: log out locally anyway
       }

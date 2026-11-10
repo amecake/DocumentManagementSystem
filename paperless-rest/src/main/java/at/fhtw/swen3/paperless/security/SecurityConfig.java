@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(e -> e.authenticationEntryPoint(SecurityConfig::writeUnauthorized))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/documents/**", "/api/auth/logout", "/api/auth/me").authenticated()
+                        .requestMatchers("/api/documents/**", "/api/sessions/current", "/api/users/me").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
         return http.build();
