@@ -76,10 +76,9 @@
         const res = await apiFetch(url);
         allDocs = res.status === 204 ? [] : await res.json();
 
-        for (const doc of allDocs) {
-          const tagsRes = await apiFetch(`/documents/${doc.id}/tags`);
-          docTags[doc.id] = tagsRes.status === 204 ? [] : await tagsRes.json();
-        }
+        // the tags come with each document, no extra request per document
+        docTags = {};
+        allDocs.forEach(doc => { docTags[doc.id] = doc.tags || []; });
 
         clearError();
         populateTagFilter();
