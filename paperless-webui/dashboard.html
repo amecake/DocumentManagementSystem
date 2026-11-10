@@ -51,7 +51,14 @@
 <script>
     if (!isLoggedIn()) window.location.href = "index.html";
 
-    document.getElementById("logoutBtn").addEventListener("click", () => {
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("logoutBtn");
+      setLoading(btn, true);
+      try {
+        await apiFetch("/auth/logout", { method: "POST" });
+      } catch (err) {
+        // server not reachable or token already invalid: log out locally anyway
+      }
       clearToken();
       window.location.href = "index.html";
     });
