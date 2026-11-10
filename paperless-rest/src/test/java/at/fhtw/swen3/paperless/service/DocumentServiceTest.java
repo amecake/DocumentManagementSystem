@@ -2,8 +2,8 @@ package at.fhtw.swen3.paperless.service;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.messaging.DocumentEventPublisher;
 import at.fhtw.swen3.paperless.messaging.DocumentUploadedEvent;
-import at.fhtw.swen3.paperless.messaging.DocumentUploadedPublisher;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
@@ -36,14 +36,14 @@ class DocumentServiceTest {
     private TagRepository tagRepository;
 
     @Mock
-    private DocumentUploadedPublisher uploadedPublisher;
+    private DocumentEventPublisher eventPublisher;
 
     private DocumentService service;
 
     @BeforeEach
     void setUp() {
-        service = new DocumentService(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository,
-                uploadedPublisher);
+        service = new DocumentServiceImpl(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository,
+                eventPublisher);
     }
 
     private static DocumentEntity document(long id, String title) {
@@ -208,6 +208,6 @@ class DocumentServiceTest {
 
         service.upload("Scan", "scan.pdf", 4);
 
-        verify(uploadedPublisher).publish(new DocumentUploadedEvent(7L, "Scan", "scan.pdf"));
+        verify(eventPublisher).publish(new DocumentUploadedEvent(7L, "Scan", "scan.pdf"));
     }
 }

@@ -41,7 +41,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuthService(userRepository, passwordEncoder, jwtService);
+        service = new AuthServiceImpl(userRepository, passwordEncoder, jwtService);
     }
 
     private UserEntity user(String password) {

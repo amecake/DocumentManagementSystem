@@ -6,7 +6,8 @@ import org.springframework.stereotype.Component;
 @Component
 @RabbitPublication(exchange = RabbitConfig.DOCUMENT_EVENTS_EXCHANGE,
         routingKey = RabbitConfig.DOCUMENT_UPLOADED_ROUTING_KEY)
-public class DocumentUploadedPublisher extends RabbitEventPublisher<DocumentUploadedEvent> {
+public class DocumentUploadedPublisher extends RabbitEventPublisher<DocumentUploadedEvent>
+        implements DocumentEventPublisher {
 
     public DocumentUploadedPublisher(RabbitTemplate rabbitTemplate) {
         super(rabbitTemplate);
