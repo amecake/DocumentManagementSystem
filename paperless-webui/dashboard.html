@@ -69,20 +69,26 @@
     let searchTimer = null;
 
     async function loadDocuments() {
-      const url = currentQuery
-        ? `/documents?q=${encodeURIComponent(currentQuery)}`
-        : "/documents";
-      const res = await apiFetch(url);
-      allDocs = res.status === 204 ? [] : await res.json();
+      try {
+        const url = currentQuery
+          ? `/documents?q=${encodeURIComponent(currentQuery)}`
+          : "/documents";
+        const res = await apiFetch(url);
+        allDocs = res.status === 204 ? [] : await res.json();
 
-      for (const doc of allDocs) {
-        const tagsRes = await apiFetch(`/documents/${doc.id}/tags`);
-        docTags[doc.id] = tagsRes.status === 204 ? [] : await tagsRes.json();
+        for (const doc of allDocs) {
+          const tagsRes = await apiFetch(`/documents/${doc.id}/tags`);
+          docTags[doc.id] = tagsRes.status === 204 ? [] : await tagsRes.json();
+        }
+
+        clearError();
+        populateTagFilter();
+        applyFilters();
+      } catch (err) {
+        showError(NETWORK_ERROR);
+      } finally {
+        document.getElementById("loader").hidden = true;
       }
-
-      document.getElementById("loader").hidden = true;
-      populateTagFilter();
-      applyFilters();
     }
 
     function populateTagFilter() {
@@ -208,9 +214,10 @@
           alert("Upload failed");
         }
       } catch (err) {
-        alert("Upload failed");
+        showError(NETWORK_ERROR);
+      } finally {
+        setLoading(btn, false);
       }
-      setLoading(btn, false);
     });
 
     document.getElementById("searchInput").addEventListener("input", (e) => {

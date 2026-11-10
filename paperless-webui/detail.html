@@ -64,46 +64,60 @@
     }
 
     async function loadDocument() {
-      const res = await apiFetch(`/documents/${docId}`);
-      document.getElementById("loader").hidden = true;
-      if (!res.ok) {
-        document.getElementById("docTitle").textContent = "Document not found";
-        return;
-      }
-      const doc = await res.json();
-      document.getElementById("docTitle").textContent = doc.title;
-      document.getElementById("newTitle").value = doc.title;
+      try {
+        const res = await apiFetch(`/documents/${docId}`);
+        if (!res.ok) {
+          document.getElementById("docTitle").textContent = "Document not found";
+          return;
+        }
+        const doc = await res.json();
+        document.getElementById("docTitle").textContent = doc.title;
+        document.getElementById("newTitle").value = doc.title;
 
-      const meta = document.getElementById("docMeta");
-      meta.innerHTML = "";
-      meta.append(
-        metaItem("File", doc.originalFilename),
-        metaItem("Size", (doc.fileSize / 1024).toFixed(1) + " KB"),
-        metaItem("Uploaded", new Date(doc.uploadedAt).toLocaleString())
-      );
+        const meta = document.getElementById("docMeta");
+        meta.innerHTML = "";
+        meta.append(
+          metaItem("File", doc.originalFilename),
+          metaItem("Size", (doc.fileSize / 1024).toFixed(1) + " KB"),
+          metaItem("Uploaded", new Date(doc.uploadedAt).toLocaleString())
+        );
+      } catch (err) {
+        document.getElementById("docTitle").textContent = "Document could not be loaded";
+        showError(NETWORK_ERROR);
+      } finally {
+        document.getElementById("loader").hidden = true;
+      }
     }
 
     async function loadTags() {
-      const res = await apiFetch(`/documents/${docId}/tags`);
-      const tags = res.ok && res.status !== 204 ? await res.json() : [];
-      const list = document.getElementById("tagList");
-      list.innerHTML = "";
-      tags.forEach(tag => {
-        const chip = document.createElement("span");
-        chip.className = "chip";
-        chip.textContent = tag;
-        const delBtn = document.createElement("button");
-        delBtn.className = "chip-x";
-        delBtn.type = "button";
-        delBtn.textContent = "\u00d7";
-        delBtn.title = "Remove tag";
-        delBtn.onclick = async () => {
-          await apiFetch(`/documents/${docId}/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
-          loadTags();
-        };
-        chip.appendChild(delBtn);
-        list.appendChild(chip);
-      });
+      try {
+        const res = await apiFetch(`/documents/${docId}/tags`);
+        const tags = res.ok && res.status !== 204 ? await res.json() : [];
+        const list = document.getElementById("tagList");
+        list.innerHTML = "";
+        tags.forEach(tag => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = tag;
+          const delBtn = document.createElement("button");
+          delBtn.className = "chip-x";
+          delBtn.type = "button";
+          delBtn.textContent = "\u00d7";
+          delBtn.title = "Remove tag";
+          delBtn.onclick = async () => {
+            try {
+              await apiFetch(`/documents/${docId}/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+              loadTags();
+            } catch (err) {
+              showError(NETWORK_ERROR);
+            }
+          };
+          chip.appendChild(delBtn);
+          list.appendChild(chip);
+        });
+      } catch (err) {
+        showError(NETWORK_ERROR);
+      }
     }
 
     document.getElementById("editForm").addEventListener("submit", async (e) => {
@@ -115,14 +129,19 @@
         return;
       }
       setLoading(btn, true);
-      const res = await apiFetch(`/documents/${docId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title })
-      });
-      if (res.ok) await loadDocument();
-      else alert("Update failed");
-      setLoading(btn, false);
+      try {
+        const res = await apiFetch(`/documents/${docId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title })
+        });
+        if (res.ok) await loadDocument();
+        else alert("Update failed");
+      } catch (err) {
+        showError(NETWORK_ERROR);
+      } finally {
+        setLoading(btn, false);
+      }
     });
 
     document.getElementById("tagForm").addEventListener("submit", async (e) => {
@@ -134,32 +153,42 @@
         return;
       }
       setLoading(btn, true);
-      const res = await apiFetch(`/documents/${docId}/tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
-      });
-      if (res.ok) {
-        document.getElementById("newTag").value = "";
-        await loadTags();
-      } else if (res.status === 409) {
-        alert("This document already has that tag");
-      } else {
-        alert("Failed to add tag");
+      try {
+        const res = await apiFetch(`/documents/${docId}/tags`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name })
+        });
+        if (res.ok) {
+          document.getElementById("newTag").value = "";
+          await loadTags();
+        } else if (res.status === 409) {
+          alert("This document already has that tag");
+        } else {
+          alert("Failed to add tag");
+        }
+      } catch (err) {
+        showError(NETWORK_ERROR);
+      } finally {
+        setLoading(btn, false);
       }
-      setLoading(btn, false);
     });
 
     document.getElementById("deleteBtn").addEventListener("click", async () => {
       if (!confirm("Delete this document?")) return;
       const btn = document.getElementById("deleteBtn");
       setLoading(btn, true);
-      const res = await apiFetch(`/documents/${docId}`, { method: "DELETE" });
-      if (res.ok) window.location.href = "dashboard.html";
-      else {
+      try {
+        const res = await apiFetch(`/documents/${docId}`, { method: "DELETE" });
+        if (res.ok) {
+          window.location.href = "dashboard.html";
+          return;
+        }
         alert("Delete failed");
-        setLoading(btn, false);
+      } catch (err) {
+        showError(NETWORK_ERROR);
       }
+      setLoading(btn, false);
     });
 
     loadDocument();
