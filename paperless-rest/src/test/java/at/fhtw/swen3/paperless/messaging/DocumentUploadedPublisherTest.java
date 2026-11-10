@@ -22,12 +22,12 @@ class DocumentUploadedPublisherTest {
     private RabbitTemplate rabbitTemplate;
 
     @Test
-    void publish_sendsToDocumentEventsExchange() {
+    void publish_sendsToTheOcrQueueThroughTheDefaultExchange() {
         var event = new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf");
 
         new DocumentUploadedPublisher(rabbitTemplate).publish(event);
 
-        verify(rabbitTemplate).convertAndSend("document.events", "document.uploaded", event);
+        verify(rabbitTemplate).convertAndSend("", "paperless.ocr", event);
     }
 
     @Test

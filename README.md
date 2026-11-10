@@ -61,7 +61,7 @@ All `/api/documents` endpoints need a token. Register, log in and send the token
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/documents` (multipart: `file`, optional `title`) | Upload a PDF → 201 + `Location`, 415 if the file is not a PDF |
-| GET | `/api/documents` | List all documents (204 if there are none) |
+| GET | `/api/documents` | List all documents incl. their tags (204 if there are none) |
 | GET | `/api/documents?q=` | Search by title |
 | GET | `/api/documents/{id}` | Get one document |
 | PUT | `/api/documents/{id}` | Update the title |
@@ -76,15 +76,20 @@ Tag names must not contain `/` or `\`.
 ## Queues (RabbitMQ + `paperless-worker`)
 
 ```
-POST /api/documents -> paperless-rest -> exchange "document.events" -> queue "paperless.ocr" -> paperless-worker
-                                         (routing key "document.uploaded")
+POST /api/documents -> paperless-rest -> default exchange -> queue "paperless.ocr" -> paperless-worker
 ```
 
-- `paperless-rest` (`messaging/`): `RabbitConfig` declares the exchange, `DocumentUploadedPublisher`
-  sends a `DocumentUploadedEvent` after the document is saved (`DocumentService.upload`).
-  If RabbitMQ is not reachable the error is logged and the upload still returns 201.
-- `paperless-worker`: `RabbitConfig` declares the queue and binds it to the exchange,
-  `DocumentUploadedListener` receives the event and writes a log entry. The actual OCR comes in sprint 4.
+There is only one kind of message, so no routing key logic is needed: the REST server sends the
+`DocumentUploadedEvent` through the default exchange straight to the queue `paperless.ocr`
+(the queue name is the routing key). A topic exchange would only make sense once several event types
+(e.g. `document.uploaded`, `document.ocr-done`) go through the same exchange.
+
+- `paperless-rest` (`messaging/`): `DocumentUploadedPublisher` (implements `DocumentEventPublisher`)
+  sends a `DocumentUploadedEvent` after the document is saved (`DocumentServiceImpl.upload`).
+  If RabbitMQ is not reachable the error is logged and the upload still returns 201 (deliberate decision:
+  the document is stored, but this one message is lost; there is no retry yet).
+- `paperless-worker`: `RabbitConfig` declares the queue, `DocumentUploadedListener` receives the event
+  and writes a log entry. The actual OCR comes in sprint 4.
 
 Check it: upload a PDF, then `docker compose logs paperless-worker` shows
 `OCR worker received document id=..., title='...', file='...'`.
