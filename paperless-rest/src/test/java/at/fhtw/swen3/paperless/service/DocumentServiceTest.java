@@ -108,9 +108,21 @@ class DocumentServiceTest {
     @Test
     void update_changesTitle() {
         when(documentRepository.findById(1L)).thenReturn(Optional.of(document(1, "old")));
-        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThat(service.update(1L, new DocumentUpdateDto(" new ")).title()).isEqualTo("new");
+    }
+
+    @Test
+    void update_flushesSoThatUpdatedAtIsCurrent() {
+        DocumentEntity doc = document(1, "old");
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        when(documentRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(1L, new DocumentUpdateDto("new"));
+
+        verify(documentRepository).saveAndFlush(doc);
+        verify(documentRepository, never()).save(any());
     }
 
     @Test

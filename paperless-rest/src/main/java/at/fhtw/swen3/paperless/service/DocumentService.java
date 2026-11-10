@@ -76,7 +76,8 @@ public class DocumentService {
         DocumentEntity entity = getDocument(id);
         entity.setTitle(update.title().trim());
         log.info("Document {} metadata updated", id);
-        return mapper.toDto(documentRepository.save(entity));
+        // flush so that @PreUpdate sets updatedAt before the entity is mapped to the DTO
+        return mapper.toDto(documentRepository.saveAndFlush(entity));
     }
 
     public void delete(Long id) {
