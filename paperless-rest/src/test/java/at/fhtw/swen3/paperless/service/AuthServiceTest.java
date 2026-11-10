@@ -104,6 +104,19 @@ class AuthServiceTest {
     }
 
     @Test
+    void login_unknownUser_stillChecksAPasswordHash() {
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        when(encoder.encode(any())).thenReturn("dummy-hash");
+        AuthService serviceWithMockEncoder = new AuthServiceImpl(userRepository, encoder, jwtService);
+        when(userRepository.findByUsernameIgnoreCase("nobody")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> serviceWithMockEncoder.login(new LoginRequest("nobody", "secret123")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verify(encoder).matches("secret123", "dummy-hash");
+    }
+
+    @Test
     void logout_revokesToken() {
         service.logout("token");
 

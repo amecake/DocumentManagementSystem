@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 @Transactional
 public class AuthServiceImpl implements AuthService {
@@ -25,11 +27,14 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    // hash that is checked when the user does not exist, so that unknown users take as long as known ones
+    private final String dummyHash;
 
     public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.dummyHash = passwordEncoder.encode("timing-protection");
     }
 
     @Override
@@ -49,8 +54,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        UserEntity user = userRepository.findByUsernameIgnoreCase(request.username().trim())
-                .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
+        Optional<UserEntity> found = userRepository.findByUsernameIgnoreCase(request.username().trim());
+        // always run one BCrypt check, otherwise the response time shows whether the user exists
+        String hash = found.map(UserEntity::getPasswordHash).orElse(dummyHash);
+        boolean passwordMatches = passwordEncoder.matches(request.password(), hash);
+
+        UserEntity user = found.filter(u -> passwordMatches)
                 .orElseThrow(() -> {
                     log.warn("Failed login for username '{}'", request.username());
                     return new InvalidCredentialsException();
