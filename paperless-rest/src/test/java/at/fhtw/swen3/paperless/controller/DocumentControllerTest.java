@@ -31,6 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WithMockUser
 class DocumentControllerTest {
 
+    private static final byte[] PDF_BYTES = "%PDF-1.4".getBytes();
+
     @Autowired
     private MockMvc mvc;
 
@@ -41,28 +43,40 @@ class DocumentControllerTest {
     private JwtService jwtService;
 
     private static DocumentDto dto(long id, String title) {
-        return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now());
+        return new DocumentDto(id, title, title + ".pdf", "application/pdf", 10, Instant.now(), Instant.now(),
+                List.of(), "PENDING");
     }
 
     @Test
     void upload_returns201() throws Exception {
-        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
-        when(documentService.upload(eq("A"), eq("a.pdf"), eq(4L))).thenReturn(dto(1, "A"));
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", PDF_BYTES);
+        when(documentService.upload(eq("A"), eq("a.pdf"), eq((long) PDF_BYTES.length))).thenReturn(dto(1, "A"));
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "A"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/documents/1"))
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.title").value("A"));
+                .andExpect(jsonPath("$.title").value("A"))
+                .andExpect(jsonPath("$.ocrStatus").value("PENDING"));
     }
 
     @Test
-    void upload_nonPdf_returns400() throws Exception {
+    void upload_nonPdf_returns415() throws Exception {
         var file = new MockMultipartFile("file", "a.png", "image/png", new byte[]{1});
 
         mvc.perform(multipart("/api/documents").file(file))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.detail").value("Only PDF documents are supported"));
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void upload_pdfNameButOtherContent_returns415() throws Exception {
+        var file = new MockMultipartFile("file", "fake.pdf", "application/pdf", "not a pdf at all".getBytes());
+
+        mvc.perform(multipart("/api/documents").file(file))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.detail").value("File content is not a valid PDF"));
         verifyNoInteractions(documentService);
     }
 
@@ -76,7 +90,7 @@ class DocumentControllerTest {
 
     @Test
     void upload_titleTooLong_returns400() throws Exception {
-        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", PDF_BYTES);
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "x".repeat(256)))
                 .andExpect(status().isBadRequest())
@@ -86,7 +100,7 @@ class DocumentControllerTest {
 
     @Test
     void upload_filenameTooLong_returns400() throws Exception {
-        var file = new MockMultipartFile("file", "x".repeat(252) + ".pdf", "application/pdf", "%PDF".getBytes());
+        var file = new MockMultipartFile("file", "x".repeat(252) + ".pdf", "application/pdf", PDF_BYTES);
 
         mvc.perform(multipart("/api/documents").file(file)).andExpect(status().isBadRequest());
         verifyNoInteractions(documentService);
@@ -99,6 +113,18 @@ class DocumentControllerTest {
         mvc.perform(get("/api/documents"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void getAll_includesTagsOfEachDocument() throws Exception {
+        var tagged = new DocumentDto(1L, "A", "A.pdf", "application/pdf", 10, Instant.now(), Instant.now(),
+                List.of("finance", "urgent"), "PENDING");
+        when(documentService.search(null)).thenReturn(List.of(tagged));
+
+        mvc.perform(get("/api/documents"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].tags.length()").value(2))
+                .andExpect(jsonPath("$[0].tags[0]").value("finance"));
     }
 
     @Test
@@ -205,7 +231,11 @@ class DocumentControllerTest {
     @Test
     @WithAnonymousUser
     void notLoggedIn_returns401() throws Exception {
-        mvc.perform(get("/api/documents")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/documents"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Authentication required"));
         verifyNoInteractions(documentService);
     }
 

@@ -2,8 +2,8 @@ package at.fhtw.swen3.paperless.service;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.messaging.DocumentEventPublisher;
 import at.fhtw.swen3.paperless.messaging.DocumentUploadedEvent;
-import at.fhtw.swen3.paperless.messaging.DocumentUploadedPublisher;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
@@ -36,14 +36,14 @@ class DocumentServiceTest {
     private TagRepository tagRepository;
 
     @Mock
-    private DocumentUploadedPublisher uploadedPublisher;
+    private DocumentEventPublisher eventPublisher;
 
     private DocumentService service;
 
     @BeforeEach
     void setUp() {
-        service = new DocumentService(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository,
-                uploadedPublisher);
+        service = new DocumentServiceImpl(documentRepository, Mappers.getMapper(DocumentMapper.class), tagRepository,
+                eventPublisher);
     }
 
     private static DocumentEntity document(long id, String title) {
@@ -74,6 +74,25 @@ class DocumentServiceTest {
         when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThat(service.upload("  ", "scan.pdf", 4).title()).isEqualTo("scan.pdf");
+    }
+
+    @Test
+    void upload_messageSent_statusIsPending() {
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(eventPublisher.publish(any())).thenReturn(true);
+
+        assertThat(service.upload("Scan", "scan.pdf", 4).ocrStatus()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void upload_messageCouldNotBeSent_documentIsSavedWithStatusFailed() {
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(eventPublisher.publish(any())).thenReturn(false);
+
+        DocumentDto result = service.upload("Scan", "scan.pdf", 4);
+
+        assertThat(result.title()).isEqualTo("Scan");
+        assertThat(result.ocrStatus()).isEqualTo("FAILED");
     }
 
     @Test
@@ -108,9 +127,21 @@ class DocumentServiceTest {
     @Test
     void update_changesTitle() {
         when(documentRepository.findById(1L)).thenReturn(Optional.of(document(1, "old")));
-        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThat(service.update(1L, new DocumentUpdateDto(" new ")).title()).isEqualTo("new");
+    }
+
+    @Test
+    void update_flushesSoThatUpdatedAtIsCurrent() {
+        DocumentEntity doc = document(1, "old");
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        when(documentRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(1L, new DocumentUpdateDto("new"));
+
+        verify(documentRepository).saveAndFlush(doc);
+        verify(documentRepository, never()).save(any());
     }
 
     @Test
@@ -196,6 +227,6 @@ class DocumentServiceTest {
 
         service.upload("Scan", "scan.pdf", 4);
 
-        verify(uploadedPublisher).publish(new DocumentUploadedEvent(7L, "Scan", "scan.pdf"));
+        verify(eventPublisher).publish(new DocumentUploadedEvent(7L, "Scan", "scan.pdf"));
     }
 }

@@ -42,7 +42,7 @@ class AuthControllerTest {
     void register_returns201() throws Exception {
         when(authService.register(any())).thenReturn(new UserDto(1L, "jarod", "jarod@example.com"));
 
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
+        mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("jarod"))
                 .andExpect(jsonPath("$.password").doesNotExist());
@@ -52,7 +52,7 @@ class AuthControllerTest {
     void register_invalidInput_returns400() throws Exception {
         String body = "{\"username\":\" \",\"email\":\"not-an-email\",\"password\":\"short\"}";
 
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(authService);
     }
@@ -61,7 +61,7 @@ class AuthControllerTest {
     void register_takenUsername_returns409() throws Exception {
         when(authService.register(any())).thenThrow(new ConflictException("taken"));
 
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
+        mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
                 .andExpect(status().isConflict());
     }
 
@@ -70,7 +70,7 @@ class AuthControllerTest {
         when(authService.login(any())).thenReturn(
                 new LoginResponse("abc.def.ghi", "Bearer", 3600, new UserDto(1L, "jarod", "jarod@example.com")));
 
-        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
+        mvc.perform(post("/api/sessions").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("abc.def.ghi"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"));
@@ -80,21 +80,21 @@ class AuthControllerTest {
     void login_wrongPassword_returns401() throws Exception {
         when(authService.login(any())).thenThrow(new InvalidCredentialsException());
 
-        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
+        mvc.perform(post("/api/sessions").contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @WithMockUser
     void logout_revokesToken() throws Exception {
-        mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer abc.def.ghi"))
+        mvc.perform(delete("/api/sessions/current").header("Authorization", "Bearer abc.def.ghi"))
                 .andExpect(status().isNoContent());
         verify(authService).logout("abc.def.ghi");
     }
 
     @Test
     void logout_notLoggedIn_returns401() throws Exception {
-        mvc.perform(post("/api/auth/logout")).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/sessions/current")).andExpect(status().isUnauthorized());
         verifyNoInteractions(authService);
     }
 
@@ -103,8 +103,14 @@ class AuthControllerTest {
     void me_returnsCurrentUser() throws Exception {
         when(authService.getUser(7L)).thenReturn(new UserDto(7L, "jarod", "jarod@example.com"));
 
-        mvc.perform(get("/api/auth/me"))
+        mvc.perform(get("/api/users/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(7));
+    }
+
+    @Test
+    void me_notLoggedIn_returns401() throws Exception {
+        mvc.perform(get("/api/users/me")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(authService);
     }
 }

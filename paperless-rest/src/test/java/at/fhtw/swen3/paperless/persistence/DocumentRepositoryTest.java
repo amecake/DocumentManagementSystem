@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -36,6 +38,18 @@ class DocumentRepositoryTest {
 
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getUploadedAt()).isNotNull();
+    }
+
+    @Test
+    void saveAndFlush_afterChange_refreshesUpdatedAt() throws InterruptedException {
+        DocumentEntity saved = documentRepository.saveAndFlush(newDocument("Old"));
+        Instant before = saved.getUpdatedAt();
+        Thread.sleep(5);
+
+        saved.setTitle("New");
+        DocumentEntity updated = documentRepository.saveAndFlush(saved);
+
+        assertThat(updated.getUpdatedAt()).isAfter(before);
     }
 
     @Test

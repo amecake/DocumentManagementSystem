@@ -38,7 +38,7 @@
       msg.textContent = "";
       setLoading(btn, true);
       try {
-        const res = await fetch(API_BASE + "/auth/login", {
+        const res = await fetch(API_BASE + "/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password })
@@ -50,7 +50,7 @@
           window.location.href = "dashboard.html";
           return;
         }
-        msg.textContent = "Login failed";
+        msg.textContent = await errorText(res, "Login failed");
       } catch (err) {
         msg.textContent = "Server not reachable";
       }

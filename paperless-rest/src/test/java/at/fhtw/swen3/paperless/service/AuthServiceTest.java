@@ -41,7 +41,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuthService(userRepository, passwordEncoder, jwtService);
+        service = new AuthServiceImpl(userRepository, passwordEncoder, jwtService);
     }
 
     private UserEntity user(String password) {
@@ -74,6 +74,15 @@ class AuthServiceTest {
     }
 
     @Test
+    void register_takenUsername_messageDoesNotRevealTheUsername() {
+        when(userRepository.existsByUsernameIgnoreCase("jarod")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.register(new RegisterRequest("jarod", "a@b.at", "secret123")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageNotContaining("jarod");
+    }
+
+    @Test
     void login_correctPassword_returnsToken() {
         when(userRepository.findByUsernameIgnoreCase("jarod")).thenReturn(Optional.of(user("secret123")));
         when(jwtService.issue(any())).thenReturn("token");
@@ -101,6 +110,19 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> service.login(new LoginRequest("nobody", "secret123")))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void login_unknownUser_stillChecksAPasswordHash() {
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        when(encoder.encode(any())).thenReturn("dummy-hash");
+        AuthService serviceWithMockEncoder = new AuthServiceImpl(userRepository, encoder, jwtService);
+        when(userRepository.findByUsernameIgnoreCase("nobody")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> serviceWithMockEncoder.login(new LoginRequest("nobody", "secret123")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verify(encoder).matches("secret123", "dummy-hash");
     }
 
     @Test
