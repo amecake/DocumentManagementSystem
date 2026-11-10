@@ -74,6 +74,15 @@ class AuthServiceTest {
     }
 
     @Test
+    void register_takenUsername_messageDoesNotRevealTheUsername() {
+        when(userRepository.existsByUsernameIgnoreCase("jarod")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.register(new RegisterRequest("jarod", "a@b.at", "secret123")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageNotContaining("jarod");
+    }
+
+    @Test
     void login_correctPassword_returnsToken() {
         when(userRepository.findByUsernameIgnoreCase("jarod")).thenReturn(Optional.of(user("secret123")));
         when(jwtService.issue(any())).thenReturn("token");

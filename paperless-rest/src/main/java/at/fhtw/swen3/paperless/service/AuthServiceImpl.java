@@ -41,7 +41,9 @@ public class AuthServiceImpl implements AuthService {
     public UserDto register(RegisterRequest request) {
         String username = request.username().trim();
         if (userRepository.existsByUsernameIgnoreCase(username)) {
-            throw new ConflictException("Username '" + username + "' is already taken");
+            log.info("Registration rejected, username '{}' already exists", username);
+            // the message must not repeat the username or say which value is the problem
+            throw new ConflictException("Registration failed, please choose a different username or e-mail address");
         }
         UserEntity user = new UserEntity();
         user.setUsername(username);
