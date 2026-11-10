@@ -68,6 +68,8 @@
         const res = await apiFetch(`/documents/${docId}`);
         if (!res.ok) {
           document.getElementById("docTitle").textContent = "Document not found";
+          // nothing to edit, tag or delete
+          document.querySelectorAll(".section").forEach(section => section.hidden = true);
           return;
         }
         const doc = await res.json();
@@ -105,8 +107,13 @@
           delBtn.textContent = "\u00d7";
           delBtn.title = "Remove tag";
           delBtn.onclick = async () => {
+            clearError();
             try {
-              await apiFetch(`/documents/${docId}/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+              const delRes = await apiFetch(`/documents/${docId}/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+              if (!delRes.ok) {
+                showError(await errorText(delRes, "Failed to remove tag"));
+                return;
+              }
               loadTags();
             } catch (err) {
               showError(NETWORK_ERROR);
@@ -124,11 +131,11 @@
       e.preventDefault();
       const btn = document.getElementById("saveBtn");
       const title = document.getElementById("newTitle").value.trim();
+      clearError();
       if (!title || title.length > 255) {
-        alert("Title must be between 1 and 255 characters");
+        showError("Title must be between 1 and 255 characters");
         return;
       }
-      clearError();
       setLoading(btn, true);
       try {
         const res = await apiFetch(`/documents/${docId}`, {
@@ -149,11 +156,15 @@
       e.preventDefault();
       const btn = document.getElementById("tagBtn");
       const name = document.getElementById("newTag").value.trim();
+      clearError();
       if (!name || name.length > 50) {
-        alert("Tag must be between 1 and 50 characters");
+        showError("Tag must be between 1 and 50 characters");
         return;
       }
-      clearError();
+      if (name.includes("/") || name.includes("\\")) {
+        showError("Tag must not contain slashes");
+        return;
+      }
       setLoading(btn, true);
       try {
         const res = await apiFetch(`/documents/${docId}/tags`, {
