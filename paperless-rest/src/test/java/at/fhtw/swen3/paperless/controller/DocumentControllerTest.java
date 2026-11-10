@@ -205,7 +205,11 @@ class DocumentControllerTest {
     @Test
     @WithAnonymousUser
     void notLoggedIn_returns401() throws Exception {
-        mvc.perform(get("/api/documents")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/documents"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Authentication required"));
         verifyNoInteractions(documentService);
     }
 
