@@ -1,6 +1,7 @@
 package at.fhtw.swen3.paperless.controller;
 
 import at.fhtw.swen3.paperless.exception.InvalidFileException;
+import at.fhtw.swen3.paperless.exception.UnsupportedFileTypeException;
 import at.fhtw.swen3.paperless.service.DocumentService;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
@@ -16,7 +17,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -25,6 +30,7 @@ import java.util.List;
 public class DocumentController {
 
     private static final String PDF = "application/pdf";
+    private static final byte[] PDF_MAGIC = "%PDF-".getBytes(StandardCharsets.US_ASCII);
     private static final int MAX_LENGTH = 255;
 
     private final DocumentService documentService;
@@ -37,7 +43,7 @@ public class DocumentController {
     public ResponseEntity<DocumentDto> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "title", required = false)
-            @Size(max = MAX_LENGTH, message = "title must be at most 255 characters") String title) {
+            @Size(max = MAX_LENGTH, message = "title must be at most 255 characters") String title) throws IOException {
         String filename = validatePdf(file);
         DocumentDto created = documentService.upload(title, filename, file.getSize());
 
@@ -88,17 +94,27 @@ public class DocumentController {
         documentService.removeTag(id, name);
     }
 
-    private static String validatePdf(MultipartFile file) {
+    private static String validatePdf(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
             throw new InvalidFileException("File must not be empty");
         }
         String filename = StringUtils.cleanPath(file.getOriginalFilename() == null ? "" : file.getOriginalFilename());
         if (!PDF.equals(file.getContentType()) && !filename.toLowerCase().endsWith(".pdf")) {
-            throw new InvalidFileException("Only PDF documents are supported");
+            throw new UnsupportedFileTypeException("Only PDF documents are supported");
         }
         if (filename.length() > MAX_LENGTH) {
             throw new InvalidFileException("File name must be at most 255 characters");
         }
+        if (!hasPdfHeader(file)) {
+            throw new UnsupportedFileTypeException("File content is not a valid PDF");
+        }
         return filename;
+    }
+
+    // content type and file name come from the client, so also check that the file really starts with "%PDF-"
+    private static boolean hasPdfHeader(MultipartFile file) throws IOException {
+        try (InputStream in = file.getInputStream()) {
+            return Arrays.equals(in.readNBytes(PDF_MAGIC.length), PDF_MAGIC);
+        }
     }
 }

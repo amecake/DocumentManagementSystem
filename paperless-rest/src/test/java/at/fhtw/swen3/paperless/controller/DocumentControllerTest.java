@@ -31,6 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WithMockUser
 class DocumentControllerTest {
 
+    private static final byte[] PDF_BYTES = "%PDF-1.4".getBytes();
+
     @Autowired
     private MockMvc mvc;
 
@@ -46,8 +48,8 @@ class DocumentControllerTest {
 
     @Test
     void upload_returns201() throws Exception {
-        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
-        when(documentService.upload(eq("A"), eq("a.pdf"), eq(4L))).thenReturn(dto(1, "A"));
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", PDF_BYTES);
+        when(documentService.upload(eq("A"), eq("a.pdf"), eq((long) PDF_BYTES.length))).thenReturn(dto(1, "A"));
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "A"))
                 .andExpect(status().isCreated())
@@ -57,12 +59,22 @@ class DocumentControllerTest {
     }
 
     @Test
-    void upload_nonPdf_returns400() throws Exception {
+    void upload_nonPdf_returns415() throws Exception {
         var file = new MockMultipartFile("file", "a.png", "image/png", new byte[]{1});
 
         mvc.perform(multipart("/api/documents").file(file))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.detail").value("Only PDF documents are supported"));
+        verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void upload_pdfNameButOtherContent_returns415() throws Exception {
+        var file = new MockMultipartFile("file", "fake.pdf", "application/pdf", "not a pdf at all".getBytes());
+
+        mvc.perform(multipart("/api/documents").file(file))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.detail").value("File content is not a valid PDF"));
         verifyNoInteractions(documentService);
     }
 
@@ -76,7 +88,7 @@ class DocumentControllerTest {
 
     @Test
     void upload_titleTooLong_returns400() throws Exception {
-        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", "%PDF".getBytes());
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", PDF_BYTES);
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "x".repeat(256)))
                 .andExpect(status().isBadRequest())
@@ -86,7 +98,7 @@ class DocumentControllerTest {
 
     @Test
     void upload_filenameTooLong_returns400() throws Exception {
-        var file = new MockMultipartFile("file", "x".repeat(252) + ".pdf", "application/pdf", "%PDF".getBytes());
+        var file = new MockMultipartFile("file", "x".repeat(252) + ".pdf", "application/pdf", PDF_BYTES);
 
         mvc.perform(multipart("/api/documents").file(file)).andExpect(status().isBadRequest());
         verifyNoInteractions(documentService);
