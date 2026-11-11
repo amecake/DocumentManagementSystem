@@ -3,12 +3,16 @@ package at.fhtw.swen3.paperless.controller;
 import at.fhtw.swen3.paperless.exception.InvalidFileException;
 import at.fhtw.swen3.paperless.exception.UnsupportedFileTypeException;
 import at.fhtw.swen3.paperless.service.DocumentService;
+import at.fhtw.swen3.paperless.service.dto.DocumentContent;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.dto.TagDto;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -45,11 +49,24 @@ public class DocumentController {
             @RequestParam(value = "title", required = false)
             @Size(max = MAX_LENGTH, message = "title must be at most 255 characters") String title) throws IOException {
         String filename = validatePdf(file);
-        DocumentDto created = documentService.upload(title, filename, file.getSize());
+        DocumentDto created;
+        try (InputStream content = file.getInputStream()) {
+            created = documentService.upload(title, filename, file.getSize(), content);
+        }
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}").buildAndExpand(created.id()).toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    @GetMapping("/{id}/content")
+    public ResponseEntity<InputStreamResource> download(@PathVariable Long id) {
+        DocumentContent content = documentService.download(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                        .filename(content.filename(), StandardCharsets.UTF_8).build().toString())
+                .body(new InputStreamResource(content.stream()));
     }
 
     @GetMapping

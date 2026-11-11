@@ -23,6 +23,12 @@ spring:
     password: ${RABBITMQ_PASSWORD:paperless}
     connection-timeout: 5s
 
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_USER:paperless}
+  secret-key: ${MINIO_PASSWORD:paperless123}
+  bucket: ${MINIO_BUCKET:documents}
+
 security:
   jwt:
     secret: ${JWT_SECRET:local-dev-secret-change-me-0123456789abcdef}

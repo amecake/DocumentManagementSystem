@@ -31,6 +31,24 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio
+    container_name: paperless-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: paperless
+      MINIO_ROOT_PASSWORD: paperless123
+    ports:
+      - "9000:9000"     # S3 API
+      - "9001:9001"     # console
+    volumes:
+      - paperless-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   paperless-rest:
     build:
       context: ./paperless-rest
@@ -43,12 +61,18 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: paperless
       RABBITMQ_PASSWORD: paperless
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_USER: paperless
+      MINIO_PASSWORD: paperless123
+      MINIO_BUCKET: documents
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   paperless-worker:
@@ -74,3 +98,4 @@ services:
 
 volumes:
   paperless-db-data:
+  paperless-minio-data:

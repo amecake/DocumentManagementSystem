@@ -26,6 +26,10 @@ public class DocumentEntity {
     @Column(name = "file_size")
     private long fileSize;
 
+    // object key in the MinIO bucket; nullable: documents from before sprint 4 have no stored file
+    @Column(name = "storage_key")
+    private String storageKey;
+
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private Instant uploadedAt;
 
@@ -66,6 +70,8 @@ public class DocumentEntity {
     public void setContentType(String contentType) { this.contentType = contentType; }
     public long getFileSize() { return fileSize; }
     public void setFileSize(long fileSize) { this.fileSize = fileSize; }
+    public String getStorageKey() { return storageKey; }
+    public void setStorageKey(String storageKey) { this.storageKey = storageKey; }
     public Instant getUploadedAt() { return uploadedAt; }
     public void setUploadedAt(Instant uploadedAt) { this.uploadedAt = uploadedAt; }
     public Instant getUpdatedAt() { return updatedAt; }

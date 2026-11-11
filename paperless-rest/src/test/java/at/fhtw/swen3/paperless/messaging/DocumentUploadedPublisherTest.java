@@ -23,7 +23,7 @@ class DocumentUploadedPublisherTest {
 
     @Test
     void publish_sendsToTheOcrQueueThroughTheDefaultExchange() {
-        var event = new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf");
+        var event = new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf", "key-1");
 
         boolean sent = new DocumentUploadedPublisher(rabbitTemplate).publish(event);
 
@@ -37,7 +37,7 @@ class DocumentUploadedPublisherTest {
                 .when(rabbitTemplate).convertAndSend(anyString(), anyString(), any(Object.class));
 
         boolean sent = new DocumentUploadedPublisher(rabbitTemplate)
-                .publish(new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf"));
+                .publish(new DocumentUploadedEvent(1L, "Invoice", "invoice.pdf", "key-1"));
 
         assertThat(sent).isFalse();
     }

@@ -1,13 +1,17 @@
 package at.fhtw.swen3.paperless.service;
 
+import at.fhtw.swen3.paperless.service.dto.DocumentContent;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 
+import java.io.InputStream;
 import java.util.List;
 
 public interface DocumentService {
 
-    DocumentDto upload(String title, String filename, long fileSize);
+    DocumentDto upload(String title, String filename, long fileSize, InputStream content);
+
+    DocumentContent download(Long id);
 
     List<DocumentDto> findAll();
 

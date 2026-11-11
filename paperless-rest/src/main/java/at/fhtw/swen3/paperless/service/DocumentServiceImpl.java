@@ -2,6 +2,7 @@ package at.fhtw.swen3.paperless.service;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.exception.StorageException;
 import at.fhtw.swen3.paperless.messaging.DocumentEventPublisher;
 import at.fhtw.swen3.paperless.messaging.DocumentUploadedEvent;
 import at.fhtw.swen3.paperless.persistence.entity.DocumentEntity;
@@ -9,15 +10,18 @@ import at.fhtw.swen3.paperless.persistence.entity.OcrStatus;
 import at.fhtw.swen3.paperless.persistence.entity.TagEntity;
 import at.fhtw.swen3.paperless.persistence.repository.DocumentRepository;
 import at.fhtw.swen3.paperless.persistence.repository.TagRepository;
+import at.fhtw.swen3.paperless.service.dto.DocumentContent;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import at.fhtw.swen3.paperless.service.dto.DocumentUpdateDto;
 import at.fhtw.swen3.paperless.service.mapper.DocumentMapper;
+import at.fhtw.swen3.paperless.storage.FileStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 
@@ -32,34 +36,62 @@ public class DocumentServiceImpl implements DocumentService {
     private final DocumentMapper mapper;
     private final TagRepository tagRepository;
     private final DocumentEventPublisher eventPublisher;
+    private final FileStorage fileStorage;
 
     public DocumentServiceImpl(DocumentRepository documentRepository, DocumentMapper mapper,
-                               TagRepository tagRepository, DocumentEventPublisher eventPublisher) {
+                               TagRepository tagRepository, DocumentEventPublisher eventPublisher,
+                               FileStorage fileStorage) {
         this.documentRepository = documentRepository;
         this.mapper = mapper;
         this.tagRepository = tagRepository;
         this.eventPublisher = eventPublisher;
+        this.fileStorage = fileStorage;
     }
 
     @Override
-    public DocumentDto upload(String title, String filename, long fileSize) {
+    public DocumentDto upload(String title, String filename, long fileSize, InputStream content) {
+        // 1. file first: without the file the document would be useless
+        String storageKey = fileStorage.store(content, fileSize, PDF);
+
         DocumentEntity entity = new DocumentEntity();
         entity.setTitle(StringUtils.hasText(title) ? title.trim() : filename);
         entity.setOriginalFilename(filename);
         entity.setContentType(PDF);
         entity.setFileSize(fileSize);
+        entity.setStorageKey(storageKey);
         entity.setOcrStatus(OcrStatus.PENDING);
 
-        DocumentEntity saved = documentRepository.save(entity);
-        log.info("Document uploaded: id={}, file={}, size={} bytes", saved.getId(), filename, fileSize);
+        // 2. metadata; if this fails the stored file would be orphaned, so remove it again
+        DocumentEntity saved;
+        try {
+            saved = documentRepository.save(entity);
+        } catch (RuntimeException ex) {
+            discardStoredFile(storageKey);
+            throw ex;
+        }
+        log.info("Document uploaded: id={}, file={}, size={} bytes, storageKey={}",
+                saved.getId(), filename, fileSize, storageKey);
 
-        boolean queued = eventPublisher.publish(new DocumentUploadedEvent(saved.getId(), saved.getTitle(), filename));
+        // 3. notify the worker
+        boolean queued = eventPublisher.publish(
+                new DocumentUploadedEvent(saved.getId(), saved.getTitle(), filename, storageKey));
         if (!queued) {
             // the upload itself worked, but nobody will process the document: make that visible
             saved.setOcrStatus(OcrStatus.FAILED);
             log.warn("Document {} saved, but the OCR message could not be sent (ocrStatus=FAILED)", saved.getId());
         }
         return mapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DocumentContent download(Long id) {
+        DocumentEntity entity = getDocument(id);
+        if (!StringUtils.hasText(entity.getStorageKey())) {
+            throw new NotFoundException("Document " + id + " has no stored file");
+        }
+        return new DocumentContent(entity.getOriginalFilename(), entity.getContentType(),
+                fileStorage.retrieve(entity.getStorageKey()));
     }
 
     @Override
@@ -96,6 +128,7 @@ public class DocumentServiceImpl implements DocumentService {
     public void delete(Long id) {
         DocumentEntity entity = getDocument(id);
         documentRepository.delete(entity);
+        discardStoredFile(entity.getStorageKey());
         log.info("Document {} deleted", id);
     }
 
@@ -128,6 +161,18 @@ public class DocumentServiceImpl implements DocumentService {
                 .map(TagEntity::getName)
                 .sorted()
                 .toList();
+    }
+
+    private void discardStoredFile(String storageKey) {
+        if (!StringUtils.hasText(storageKey)) {
+            return;
+        }
+        try {
+            fileStorage.delete(storageKey);
+        } catch (StorageException ex) {
+            // the database is the source of truth: a leftover object is logged, not propagated
+            log.warn("Stored file {} could not be removed, it stays orphaned in the bucket", storageKey);
+        }
     }
 
     private static String normalize(String tagName) {
