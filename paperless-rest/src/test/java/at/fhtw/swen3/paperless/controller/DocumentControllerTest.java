@@ -2,9 +2,11 @@ package at.fhtw.swen3.paperless.controller;
 
 import at.fhtw.swen3.paperless.exception.ConflictException;
 import at.fhtw.swen3.paperless.exception.NotFoundException;
+import at.fhtw.swen3.paperless.exception.StorageException;
 import at.fhtw.swen3.paperless.security.JwtService;
 import at.fhtw.swen3.paperless.security.SecurityConfig;
 import at.fhtw.swen3.paperless.service.DocumentService;
+import at.fhtw.swen3.paperless.service.dto.DocumentContent;
 import at.fhtw.swen3.paperless.service.dto.DocumentDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +19,12 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -50,7 +55,8 @@ class DocumentControllerTest {
     @Test
     void upload_returns201() throws Exception {
         var file = new MockMultipartFile("file", "a.pdf", "application/pdf", PDF_BYTES);
-        when(documentService.upload(eq("A"), eq("a.pdf"), eq((long) PDF_BYTES.length))).thenReturn(dto(1, "A"));
+        when(documentService.upload(eq("A"), eq("a.pdf"), eq((long) PDF_BYTES.length), any(InputStream.class)))
+                .thenReturn(dto(1, "A"));
 
         mvc.perform(multipart("/api/documents").file(file).param("title", "A"))
                 .andExpect(status().isCreated())
@@ -58,6 +64,17 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("A"))
                 .andExpect(jsonPath("$.ocrStatus").value("PENDING"));
+    }
+
+    @Test
+    void upload_storageDown_returns503() throws Exception {
+        var file = new MockMultipartFile("file", "a.pdf", "application/pdf", PDF_BYTES);
+        when(documentService.upload(any(), any(), eq((long) PDF_BYTES.length), any(InputStream.class)))
+                .thenThrow(new StorageException("minio down", null));
+
+        mvc.perform(multipart("/api/documents").file(file))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail").value("File storage is currently unavailable"));
     }
 
     @Test
@@ -104,6 +121,32 @@ class DocumentControllerTest {
 
         mvc.perform(multipart("/api/documents").file(file)).andExpect(status().isBadRequest());
         verifyNoInteractions(documentService);
+    }
+
+    @Test
+    void download_returnsThePdf() throws Exception {
+        when(documentService.download(1L)).thenReturn(
+                new DocumentContent("a.pdf", "application/pdf", new ByteArrayInputStream(PDF_BYTES)));
+
+        mvc.perform(get("/api/documents/1/content"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition", containsString("a.pdf")))
+                .andExpect(content().bytes(PDF_BYTES));
+    }
+
+    @Test
+    void download_missingFile_returns404() throws Exception {
+        when(documentService.download(9L)).thenThrow(new NotFoundException("Document 9 has no stored file"));
+
+        mvc.perform(get("/api/documents/9/content")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void download_storageDown_returns503() throws Exception {
+        when(documentService.download(1L)).thenThrow(new StorageException("minio down", null));
+
+        mvc.perform(get("/api/documents/1/content")).andExpect(status().isServiceUnavailable());
     }
 
     @Test
